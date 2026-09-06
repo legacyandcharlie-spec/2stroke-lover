@@ -75,7 +75,7 @@
         input:focus, select:focus { border-color: var(--accent); }
         .unit-input { display: flex; align-items: center; gap: 8px; }
         .unit-input input { flex-grow: 1; }
-        .unit { font-size: 0.85rem; color: var(--text-sub); width: 40px; }
+        .unit { font-size: 0.85rem; color: var(--text-sub); width: 45px; }
         
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
         .btn {
@@ -83,11 +83,14 @@
             color: #000;
             font-weight: bold;
             border: none;
-            padding: 9px 15px;
+            padding: 9px 14px;
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 0.85rem;
+            font-size: 0.83rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
         .btn:hover { background: var(--accent-hover); color: #fff; }
         .btn-outline {
@@ -97,43 +100,121 @@
         }
         .btn-outline:hover { background: var(--accent); color: #000; }
 
-        svg {
-            width: 100%;
+        .svg-container {
+            position: relative;
             background: #090d16;
             border-radius: 8px;
             border: 1px solid var(--border);
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .svg-container::after {
+            content: "🔍 點擊放大查看細節";
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--accent);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            pointer-events: none;
+            border: 1px solid var(--border);
+        }
+        svg {
+            width: 100%;
+            height: auto;
+            display: block;
         }
         .segment { fill: #1e293b; stroke: var(--accent); stroke-width: 1.5; }
         .flat-pattern { fill: rgba(56, 189, 248, 0.12); stroke: var(--accent); stroke-width: 1.5; }
-        .ruler-line { stroke: #e2e8f0; stroke-width: 2; }
-        .ruler-text { fill: #e2e8f0; font-size: 12px; font-weight: bold; }
-        
+        .ruler-line { stroke: #f8fafc; stroke-width: 2; }
+        .ruler-text { fill: #f8fafc; font-size: 13px; font-weight: bold; }
+
         table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 10px; }
         th, td { padding: 7px 9px; text-align: left; border-bottom: 1px solid var(--border); }
         th { color: var(--text-sub); background: rgba(0,0,0,0.2); }
 
-        .print-only { display: none; }
+        /* Modal 彈窗樣式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            width: 90vw;
+            max-width: 1100px;
+            max-height: 90vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-title { font-weight: bold; color: var(--accent); font-size: 1.1rem; }
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .modal-close:hover { color: #fff; }
+        .modal-body {
+            flex-grow: 1;
+            background: #090d16;
+            border-radius: 8px;
+            padding: 10px;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 1:1 多頁 A4 列印專用區域 */
+        #printArea { display: none; }
 
         @media print {
-            @page { size: auto; margin: 10mm; }
+            @page { size: A4 portrait; margin: 10mm; }
             body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
-            .no-print, header, .btn-group, .card:first-child, #summaryBox, #pipeSection { display: none !important; }
-            .grid-layout { display: block !important; }
-            .card { border: none !important; background: transparent !important; padding: 0 !important; }
-            .print-only { display: block !important; color: black !important; font-size: 11pt; margin-bottom: 15px; }
-            #flatSvg {
-                width: var(--print-width, 100%) !important;
-                height: var(--print-height, auto) !important;
-                max-width: none !important;
+            .no-print, header, .btn-group, .grid-layout, .modal-overlay { display: none !important; }
+            #printArea { display: block !important; }
+
+            .print-page-title {
+                font-size: 14pt;
+                font-weight: bold;
+                margin-bottom: 5mm;
+                border-bottom: 2px solid #000;
+                padding-bottom: 2mm;
+            }
+            .print-card {
+                page-break-inside: avoid;
+                break-inside: avoid;
+                margin-bottom: 15mm;
+                padding-bottom: 10mm;
+                border-bottom: 1px dashed #ccc;
+            }
+            .print-card h4 { margin: 0 0 5mm 0; font-size: 11pt; color: #000; }
+            .print-svg {
                 background: white !important;
-                border: 1px dashed #ccc !important;
                 overflow: visible !important;
             }
-            .flat-pattern { stroke: #000000 !important; stroke-width: 1.2px !important; fill: none !important; }
-            .ruler-line { stroke: #000 !important; }
-            .ruler-text { fill: #000 !important; }
-            table { color: black !important; border-color: #000 !important; page-break-inside: avoid; }
-            th, td { border-color: #000 !important; }
+            .print-svg .flat-pattern { stroke: #000000 !important; stroke-width: 1.2px !important; fill: none !important; }
+            .print-svg .ruler-line { stroke: #000 !important; }
+            .print-svg .ruler-text { fill: #000 !important; }
         }
     </style>
 </head>
@@ -141,7 +222,7 @@
 
 <div class="app-container">
     <header class="no-print">
-        <h1>2T 膨脹管設計系統 (含頭段蝦殼彎分段展開)</h1>
+        <h1>2T 競技排氣管設計系統 (含頭段蝦殼彎展開)</h1>
     </header>
 
     <div class="grid-layout">
@@ -213,30 +294,30 @@
         <!-- 輸出面板 -->
         <div class="card" style="display:flex; flex-direction:column; gap:15px;">
             <div class="btn-group no-print">
-                <button class="btn" onclick="exportDXF()">💾 匯出 CAD (.DXF - cm 單位)</button>
-                <button class="btn btn-outline" onclick="exportSVG()">🎨 匯出向量圖 (.SVG)</button>
-                <button class="btn btn-outline" onclick="window.print()">🖨️ 列印 1:1 展開圖 (PDF)</button>
-            </div>
-
-            <div class="print-only">
-                <h2 style="margin:0 0 5px 0;">1:1 2D 鈑金展開圖 (100% 實際比例)</h2>
-                <div>⚠️ <b>列印設定指示：</b> 請在印表機設定中將比例設定為「<b>實際大小</b>」或「<b>100%</b>」（勿勾選縮放至頁面大小）。請量測下方 10cm 校正尺進行驗證。</div>
+                <button class="btn" onclick="exportDXF()">💾 匯出 CAD (.DXF - mm)</button>
+                <button class="btn btn-outline" onclick="copyAsImage()">📋 複製展開圖圖片</button>
+                <button class="btn btn-outline" onclick="downloadPNG()">🖼️ 下載 PNG 圖片</button>
+                <button class="btn btn-outline" onclick="print1to1()">🖨️ 列印 1:1 多頁 A4 (PDF)</button>
             </div>
 
             <div id="summaryBox" class="no-print" style="font-size:0.88rem; line-height:1.5; background:#090d16; padding:10px; border-radius:6px; border:1px solid var(--border);"></div>
 
-            <div id="pipeSection" class="no-print">
-                <h4 style="margin:0 0 6px 0; color:var(--accent);">1. 排氣管 2D/3D 立體姿態總成 (單位: cm)</h4>
-                <svg id="pipeSvg" viewBox="0 0 1000 240"></svg>
+            <div>
+                <h4 class="no-print" style="margin:0 0 6px 0; color:var(--accent);">1. 排氣管 2D/3D 立體姿態總成 (單位: mm)</h4>
+                <div class="svg-container no-print" onclick="openModal()">
+                    <svg id="pipeSvg"></svg>
+                </div>
             </div>
 
             <div>
-                <h4 class="no-print" style="margin:0 0 6px 0; color:var(--accent);">2. 2D 蝦殼與錐管鈑金展開圖 (Flat Pattern - 單位: cm)</h4>
-                <svg id="flatSvg" viewBox="0 0 1000 300"></svg>
+                <h4 class="no-print" style="margin:0 0 6px 0; color:var(--accent);">2. 2D 蝦殼與錐管鈑金展開圖 (Flat Pattern - 單位: mm)</h4>
+                <div style="background:#090d16; border-radius:8px; border:1px solid var(--border); padding:10px; overflow-x:auto;">
+                    <svg id="flatSvg"></svg>
+                </div>
             </div>
 
-            <div>
-                <h4 style="margin:10px 0 5px 0;">2D 鈑金展開幾何數據對照表 (單位: cm)</h4>
+            <div class="no-print">
+                <h4 style="margin:10px 0 5px 0;">2D 鈑金展開幾何數據對照表 (單位: mm)</h4>
                 <table>
                     <thead>
                         <tr>
@@ -257,6 +338,28 @@
     </div>
 </div>
 
+<!-- 全螢幕放大檢視 Modal -->
+<div id="pipeModal" class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <div class="modal-title">排氣管 2D/3D 立體姿態總成 (全解析度放大視圖)</div>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <svg id="modalPipeSvg" style="width:100%; max-height:75vh;"></svg>
+        </div>
+    </div>
+</div>
+
+<!-- 1:1 列印專用隱藏區域 -->
+<div id="printArea">
+    <div class="print-page-title">2T 膨脹管 1:1 實體鈑金展開圖紙 (單位: mm)</div>
+    <p style="font-size:10pt; margin-bottom:10mm;">
+        ⚠️ <b>列印指示：</b> 請於印表機設定中務必勾選「<b>實際大小</b>」或「<b>100% 比例</b>」（切勿勾選適合頁面）。請測量每一區段下方之 <b>100 mm (10 cm) 校正基準線</b> 以確保尺寸完全精準。
+    </p>
+    <div id="printCardsContainer"></div>
+</div>
+
 <script>
 let currentSegments = [];
 let flatPatterns = [];
@@ -273,11 +376,11 @@ function calculatePipe() {
 
     const singleCC = totalCC / cylinders;
     const soundSpeed = 20.05 * Math.sqrt(273.15 + egt); // m/s
-    const tunedLength = (duration * soundSpeed * 100) / (12 * rpm); // cm
+    const tunedLength = (duration * soundSpeed * 1000) / (12 * rpm); // mm
 
-    const headerD = Math.sqrt(singleCC / 136) * 3.5;
-    const bellyD = headerD * 2.75;
-    const stingerD = headerD * 0.60;
+    const headerD = Math.sqrt(singleCC / 136) * 35; // mm
+    const bellyD = headerD * 2.75; // mm
+    const stingerD = headerD * 0.60; // mm
 
     const totalHeaderL = tunedLength * 0.287;
     const diff1L = tunedLength * 0.191;
@@ -301,7 +404,6 @@ function calculatePipe() {
             const d1 = startD + (endD - startD) * (i / bendCuts);
             const d2 = startD + (endD - startD) * ((i + 1) / bendCuts);
             
-            // 首尾端與平口對接，中間節兩端皆斜切
             const beta1 = (i === 0) ? 0 : miterAngle;
             const beta2 = (i === bendCuts - 1) ? 0 : miterAngle;
 
@@ -320,7 +422,7 @@ function calculatePipe() {
         });
     }
 
-    // 後續錐管區段
+    // 後續錐管區段 (單位: mm)
     currentSegments.push(
         { name: "2a. 一級擴散錐", l: diff1L, d1: headerD * 1.04, d2: diff1D2, beta1: 0, beta2: 0, turnAngle: 0 },
         { name: "2b. 二級擴散錐", l: diff2L, d1: diff1D2, d2: bellyD, beta1: 0, beta2: 0, turnAngle: 0 },
@@ -329,7 +431,7 @@ function calculatePipe() {
         { name: "5. 尾管 (Stinger)", l: stingerL, d1: stingerD, d2: stingerD, beta1: 0, beta2: 0, turnAngle: 0 }
     );
 
-    // 2D 鈑金展開幾何算術 (含斜切正弦波曲線展開)
+    // 2D 鈑金展開幾何算術 (單位: mm)
     flatPatterns = currentSegments.map(seg => {
         const r1 = seg.d1 / 2;
         const r2 = seg.d2 / 2;
@@ -338,7 +440,7 @@ function calculatePipe() {
         const beta2Rad = (seg.beta2 * Math.PI) / 180;
 
         const isStraight = (seg.beta1 === 0 && seg.beta2 === 0);
-        const isCylinder = Math.abs(r1 - r2) < 0.01;
+        const isCylinder = Math.abs(r1 - r2) < 0.1;
 
         if (isStraight && isCylinder) {
             const width = Math.PI * seg.d1;
@@ -350,7 +452,6 @@ function calculatePipe() {
             };
         }
 
-        // 極座標與正弦曲線高密度採樣 (36 點)
         const N_PTS = 36;
         const ptsInner = [];
         const ptsOuter = [];
@@ -366,9 +467,8 @@ function calculatePipe() {
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
         for (let k = 0; k <= N_PTS; k++) {
-            const phi = (k / N_PTS) * 2 * Math.PI; // 沿圓周角度
+            const phi = (k / N_PTS) * 2 * Math.PI;
 
-            // 正弦波形修正高
             const deltaR1 = r1 * Math.tan(beta1Rad) * Math.cos(phi);
             const deltaR2 = r2 * Math.tan(beta2Rad) * Math.cos(phi);
 
@@ -411,36 +511,34 @@ function calculatePipe() {
 
     document.getElementById('summaryBox').innerHTML = `
         • 單缸排氣量: <b>${singleCC.toFixed(1)} c.c.</b> | 聲速: <b>${soundSpeed.toFixed(1)} m/s</b><br>
-        • 總諧振長度 (LT): <b>${tunedLength.toFixed(2)} cm</b> | 頭段總長: <b>${totalHeaderL.toFixed(2)} cm</b> (${totalBendAngle}° / ${bendCuts} 節蝦殼彎)
+        • 總諧振長度 (LT): <b>${tunedLength.toFixed(1)} mm</b> | 頭段總長: <b>${totalHeaderL.toFixed(1)} mm</b> (${totalBendAngle}° / ${bendCuts} 節蝦殼灣)
     `;
 
-    renderPipeSVG();
+    renderPipeSVG("pipeSvg");
     renderFlatSVG();
     renderTable();
 }
 
-// 繪製包含蝦殼彎曲姿態的 2D/3D 立體總成圖
-function renderPipeSVG() {
-    const svg = document.getElementById('pipeSvg');
+// 繪製排氣管總成 (全自動計算邊界，解決裁切問題)
+function renderPipeSVG(targetSvgId) {
+    const svg = document.getElementById(targetSvgId);
     svg.innerHTML = '';
 
-    let curX = 60;
-    let curY = 160;
-    let curAngleRad = 0; // 累積彎曲角度
+    let curX = 0;
+    let curY = 0;
+    let curAngleRad = 0;
 
-    const totalL = currentSegments.reduce((sum, s) => sum + s.l, 0);
-    const scale = 750 / totalL;
+    const pathDataList = [];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
     currentSegments.forEach(seg => {
-        const segL = seg.l * scale;
-        const r1 = (seg.d1 / 2) * scale;
-        const r2 = (seg.d2 / 2) * scale;
+        const segL = seg.l;
+        const r1 = seg.d1 / 2;
+        const r2 = seg.d2 / 2;
         const turnRad = (seg.turnAngle * Math.PI) / 180;
 
-        const deltaAngle = turnRad;
-        const nextAngleRad = curAngleRad - deltaAngle;
+        const nextAngleRad = curAngleRad - turnRad;
 
-        // 計算 4 個角落相對點
         const cosA = Math.cos(curAngleRad);
         const sinA = Math.sin(curAngleRad);
         const cosN = Math.cos(nextAngleRad);
@@ -459,20 +557,33 @@ function renderPipeSVG() {
         const p3x = nextCenterX + r2 * sinN;
         const p3y = nextCenterY + r2 * cosN;
 
-        const pathData = `M ${p1x} ${p1y} L ${p2x} ${p2y} L ${p3x} ${p3y} L ${p4x} ${p4y} Z`;
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", pathData);
-        path.setAttribute("class", "segment");
+        [p1x, p2x, p3x, p4x].forEach(x => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); });
+        [p1y, p2y, p3y, p4y].forEach(y => { minY = Math.min(minY, y); maxY = Math.max(maxY, y); });
 
-        const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-        title.textContent = `${seg.name}\n中心長度: ${seg.l.toFixed(2)} cm\nD1: Ø${seg.d1.toFixed(2)} cm | D2: Ø${seg.d2.toFixed(2)} cm`;
-        path.appendChild(title);
-
-        svg.appendChild(path);
+        pathDataList.push({
+            d: `M ${p1x} ${p1y} L ${p2x} ${p2y} L ${p3x} ${p3y} L ${p4x} ${p4y} Z`,
+            title: `${seg.name}\n長度: ${seg.l.toFixed(1)} mm\nD1: Ø${seg.d1.toFixed(1)} mm | D2: Ø${seg.d2.toFixed(1)} mm`
+        });
 
         curX = nextCenterX;
         curY = nextCenterY;
         curAngleRad = nextAngleRad;
+    });
+
+    const margin = 30; // mm
+    const width = maxX - minX + (margin * 2);
+    const height = maxY - minY + (margin * 2);
+
+    svg.setAttribute("viewBox", `${minX - margin} ${minY - margin} ${width} ${height}`);
+
+    pathDataList.forEach(item => {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", item.d);
+        path.setAttribute("class", "segment");
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        title.textContent = item.title;
+        path.appendChild(title);
+        svg.appendChild(path);
     });
 }
 
@@ -480,79 +591,57 @@ function renderFlatSVG() {
     const svg = document.getElementById('flatSvg');
     svg.innerHTML = '';
 
-    const gap = 3.5; // cm
-    let totalWidthCM = 0;
-    let maxHeightCM = 0;
+    const gap = 35; // mm
+    let totalWidthMM = 0;
+    let maxHeightMM = 0;
 
     flatPatterns.forEach(pat => {
         const w = pat.bbox.maxX - pat.bbox.minX;
         const h = pat.bbox.maxY - pat.bbox.minY;
-        totalWidthCM += w + gap;
-        if (h > maxHeightCM) maxHeightCM = h;
+        totalWidthMM += w + gap;
+        if (h > maxHeightMM) maxHeightMM = h;
     });
 
-    maxHeightCM += 4.0; // 10cm 校正尺空間
-    const scale = Math.min(960 / totalWidthCM, 230 / maxHeightCM);
+    maxHeightMM += 40; // 留給 100mm 校正尺
+    svg.setAttribute("viewBox", `0 0 ${totalWidthMM + 40} ${maxHeightMM}`);
 
-    svg.style.setProperty('--print-width', `${(totalWidthCM + 2).toFixed(2)}cm`);
-    svg.style.setProperty('--print-height', `${(maxHeightCM + 2).toFixed(2)}cm`);
-
-    // 10cm 列印校正尺
+    // 100mm (10cm) 校正尺
     const rulerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    const rulerX1 = 20, rulerY = 20, rulerX2 = rulerX1 + (10 * scale);
+    const rulerX1 = 20, rulerY = 25, rulerX2 = rulerX1 + 100;
     rulerGroup.innerHTML = `
         <line x1="${rulerX1}" y1="${rulerY}" x2="${rulerX2}" y2="${rulerY}" class="ruler-line" />
-        <line x1="${rulerX1}" y1="${rulerY - 5}" x2="${rulerX1}" y2="${rulerY + 5}" class="ruler-line" />
-        <line x1="${rulerX2}" y1="${rulerY - 5}" x2="${rulerX2}" y2="${rulerY + 5}" class="ruler-line" />
-        <text x="${rulerX1}" y="${rulerY - 8}" class="ruler-text">10 cm 實體校正基準線 (列印後請以直尺驗證長度)</text>
+        <line x1="${rulerX1}" y1="${rulerY - 6}" x2="${rulerX1}" y2="${rulerY + 6}" class="ruler-line" />
+        <line x1="${rulerX2}" y1="${rulerY - 6}" x2="${rulerX2}" y2="${rulerY + 6}" class="ruler-line" />
+        <text x="${rulerX1}" y="${rulerY - 10}" class="ruler-text">100 mm (10 cm) 實體校正基準線</text>
     `;
     svg.appendChild(rulerGroup);
 
-    let curXCM = 20 / scale;
+    let curXMM = 20;
 
     flatPatterns.forEach(pat => {
-        const wCM = pat.bbox.maxX - pat.bbox.minX;
-        const centerXCM = curXCM + (wCM / 2);
-        const baseYCM = (280 / scale) - pat.bbox.minY;
+        const wMM = pat.bbox.maxX - pat.bbox.minX;
+        const centerXMM = curXMM + (wMM / 2);
+        const baseYMM = maxHeightMM - pat.bbox.minY - 10;
 
         let pathData = "";
 
         if (!pat.isMitered && pat.isCylinder) {
             const hw = pat.width / 2;
-            const x1 = (centerXCM - hw) * scale;
-            const x2 = (centerXCM + hw) * scale;
-            const y1 = baseYCM * scale;
-            const y2 = (baseYCM - pat.height) * scale;
+            const x1 = centerXMM - hw, x2 = centerXMM + hw;
+            const y1 = baseYMM, y2 = baseYMM - pat.height;
             pathData = `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2} L ${x1} ${y2} Z`;
         } else if (!pat.isMitered) {
             const { ptsInner, ptsOuter } = pat;
-            const px1 = (centerXCM + ptsOuter[0].x) * scale;
-            const py1 = (baseYCM - ptsOuter[0].y) * scale;
-            const px2 = (centerXCM + ptsOuter[ptsOuter.length-1].x) * scale;
-            const py2 = (baseYCM - ptsOuter[ptsOuter.length-1].y) * scale;
-            const px3 = (centerXCM + ptsInner[ptsInner.length-1].x) * scale;
-            const py3 = (baseYCM - ptsInner[ptsInner.length-1].y) * scale;
-            const px4 = (centerXCM + ptsInner[0].x) * scale;
-            const py4 = (baseYCM - ptsInner[0].y) * scale;
+            const px1 = centerXMM + ptsOuter[0].x, py1 = baseYMM - ptsOuter[0].y;
+            const px2 = centerXMM + ptsOuter[ptsOuter.length-1].x, py2 = baseYMM - ptsOuter[ptsOuter.length-1].y;
+            const px3 = centerXMM + ptsInner[ptsInner.length-1].x, py3 = baseYMM - ptsInner[ptsInner.length-1].y;
+            const px4 = centerXMM + ptsInner[0].x, py4 = baseYMM - ptsInner[0].y;
 
-            const rOut = pat.Rout * scale;
-            const rIn = pat.Rin * scale;
             const largeArc = pat.angle > 180 ? 1 : 0;
-            pathData = `M ${px1} ${py1} A ${rOut} ${rOut} 0 ${largeArc} 1 ${px2} ${py2} L ${px3} ${py3} A ${rIn} ${rIn} 0 ${largeArc} 0 ${px4} ${py4} Z`;
+            pathData = `M ${px1} ${py1} A ${pat.Rout} ${pat.Rout} 0 ${largeArc} 1 ${px2} ${py2} L ${px3} ${py3} A ${pat.Rin} ${pat.Rin} 0 ${largeArc} 0 ${px4} ${py4} Z`;
         } else {
-            // 斜切蝦殼正弦波曲線多邊形繪製
-            const innerStr = pat.ptsInner.map((p, i) => {
-                const x = (centerXCM + p.x) * scale;
-                const y = (baseYCM - p.y) * scale;
-                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-            }).join(' ');
-
-            const outerStr = pat.ptsOuter.slice().reverse().map(p => {
-                const x = (centerXCM + p.x) * scale;
-                const y = (baseYCM - p.y) * scale;
-                return `L ${x} ${y}`;
-            }).join(' ');
-
+            const innerStr = pat.ptsInner.map((p, i) => `${i === 0 ? 'M' : 'L'} ${centerXMM + p.x} ${baseYMM - p.y}`).join(' ');
+            const outerStr = pat.ptsOuter.slice().reverse().map(p => `L ${centerXMM + p.x} ${baseYMM - p.y}`).join(' ');
             pathData = `${innerStr} ${outerStr} Z`;
         }
 
@@ -561,11 +650,11 @@ function renderFlatSVG() {
         path.setAttribute("class", "flat-pattern");
 
         const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-        title.textContent = `${pat.name}\n斜切角: β1=${pat.beta1}° / β2=${pat.beta2}°`;
+        title.textContent = `${pat.name}\n斜切角: β1=${pat.beta1.toFixed(1)}° / β2=${pat.beta2.toFixed(1)}°`;
         path.appendChild(title);
 
         svg.appendChild(path);
-        curXCM += wCM + gap;
+        curXMM += wMM + gap;
     });
 }
 
@@ -576,22 +665,133 @@ function renderTable() {
         tbody.innerHTML += `
             <tr>
                 <td><b>${p.name}</b></td>
-                <td>${p.l.toFixed(2)} cm</td>
-                <td>Ø${p.d1.toFixed(2)} cm</td>
-                <td>Ø${p.d2.toFixed(2)} cm</td>
+                <td>${p.l.toFixed(1)} mm</td>
+                <td>Ø${p.d1.toFixed(1)} mm</td>
+                <td>Ø${p.d2.toFixed(1)} mm</td>
                 <td>${p.beta1.toFixed(1)}° / ${p.beta2.toFixed(1)}°</td>
-                <td>${p.isCylinder ? '-' : p.Rout.toFixed(2) + ' cm'}</td>
-                <td>${p.isCylinder ? '-' : p.Rin.toFixed(2) + ' cm'}</td>
+                <td>${p.isCylinder ? '-' : p.Rout.toFixed(1) + ' mm'}</td>
+                <td>${p.isCylinder ? '-' : p.Rin.toFixed(1) + ' mm'}</td>
                 <td>${p.isCylinder ? '矩形對邊' : p.angle.toFixed(1) + '°'}</td>
             </tr>
         `;
     });
 }
 
+// 彈窗功能
+function openModal() {
+    renderPipeSVG("modalPipeSvg");
+    document.getElementById('pipeModal').style.display = 'flex';
+}
+function closeModal(e) {
+    if (!e || e.target.id === 'pipeModal' || e.target.className === 'modal-close') {
+        document.getElementById('pipeModal').style.display = 'none';
+    }
+}
+
+// 複製圖像與下載 PNG
+function getSvgCanvas(callback) {
+    const svgEl = document.getElementById('flatSvg');
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    img.onload = function() {
+        canvas.width = img.width || 1800;
+        canvas.height = img.height || 600;
+        ctx.fillStyle = '#090d16';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        callback(canvas);
+    };
+    img.src = url;
+}
+
+function copyAsImage() {
+    getSvgCanvas(canvas => {
+        canvas.toBlob(blob => {
+            if (navigator.clipboard && window.ClipboardItem) {
+                const item = new ClipboardItem({ 'image/png': blob });
+                navigator.clipboard.write([item]).then(() => {
+                    alert('✅ 已成功將 2D 展開圖複製至剪貼簿！可直接貼上至 Word / CAD / 簡報中。');
+                }).catch(() => {
+                    alert('複製失敗，請使用「下載 PNG 圖片」功能。');
+                });
+            } else {
+                alert('您的瀏覽器不支援剪貼簿圖片寫入，請使用「下載 PNG 圖片」。');
+            }
+        });
+    });
+}
+
+function downloadPNG() {
+    getSvgCanvas(canvas => {
+        const a = document.createElement('a');
+        a.download = '2T_Expansion_Chamber_FlatPattern_mm.png';
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+    });
+}
+
+// 1:1 多頁 A4 精準列印
+function print1to1() {
+    const container = document.getElementById('printCardsContainer');
+    container.innerHTML = '';
+
+    flatPatterns.forEach(pat => {
+        const card = document.createElement('div');
+        card.className = 'print-card';
+
+        const wMM = pat.bbox.maxX - pat.bbox.minX + 20;
+        const hMM = pat.bbox.maxY - pat.bbox.minY + 35;
+        const centerXMM = (wMM / 2);
+        const baseYMM = hMM - pat.bbox.minY - 10;
+
+        let pathData = "";
+
+        if (!pat.isMitered && pat.isCylinder) {
+            const hw = pat.width / 2;
+            pathData = `M ${centerXMM - hw} ${baseYMM} L ${centerXMM + hw} ${baseYMM} L ${centerXMM + hw} ${baseYMM - pat.height} L ${centerXMM - hw} ${baseYMM - pat.height} Z`;
+        } else if (!pat.isMitered) {
+            const { ptsInner, ptsOuter } = pat;
+            const px1 = centerXMM + ptsOuter[0].x, py1 = baseYMM - ptsOuter[0].y;
+            const px2 = centerXMM + ptsOuter[ptsOuter.length-1].x, py2 = baseYMM - ptsOuter[ptsOuter.length-1].y;
+            const px3 = centerXMM + ptsInner[ptsInner.length-1].x, py3 = baseYMM - ptsInner[ptsInner.length-1].y;
+            const px4 = centerXMM + ptsInner[0].x, py4 = baseYMM - ptsInner[0].y;
+            const largeArc = pat.angle > 180 ? 1 : 0;
+            pathData = `M ${px1} ${py1} A ${pat.Rout} ${pat.Rout} 0 ${largeArc} 1 ${px2} ${py2} L ${px3} ${py3} A ${pat.Rin} ${pat.Rin} 0 ${largeArc} 0 ${px4} ${py4} Z`;
+        } else {
+            const innerStr = pat.ptsInner.map((p, i) => `${i === 0 ? 'M' : 'L'} ${centerXMM + p.x} ${baseYMM - p.y}`).join(' ');
+            const outerStr = pat.ptsOuter.slice().reverse().map(p => `L ${centerXMM + p.x} ${baseYMM - p.y}`).join(' ');
+            pathData = `${innerStr} ${outerStr} Z`;
+        }
+
+        card.innerHTML = `
+            <h4><b>區段：${pat.name}</b> (長度: ${pat.l.toFixed(1)}mm | Ø${pat.d1.toFixed(1)}mm ~ Ø${pat.d2.toFixed(1)}mm)</h4>
+            <svg class="print-svg" style="width:${wMM}mm; height:${hMM}mm;" viewBox="0 0 ${wMM} ${hMM}">
+                <g>
+                    <line x1="10" y1="18" x2="110" y2="18" class="ruler-line" />
+                    <line x1="10" y1="13" x2="10" y2="23" class="ruler-line" />
+                    <line x1="110" y1="13" x2="110" y2="23" class="ruler-line" />
+                    <text x="10" y="9" class="ruler-text">100 mm (10 cm) 實體校正線</text>
+                </g>
+                <path d="${pathData}" class="flat-pattern" />
+            </svg>
+        `;
+        container.appendChild(card);
+    });
+
+    window.print();
+}
+
 function exportDXF() {
-    let dxf = "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n5\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n";
+    let dxf = "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n";
     let curX = 0;
-    const gap = 5.0;
+    const gap = 50.0; // 50 mm 間距
 
     flatPatterns.forEach(pat => {
         const w = pat.bbox.maxX - pat.bbox.minX;
@@ -615,7 +815,6 @@ function exportDXF() {
             dxf += dxfLine(centerX + pIn0.x, pIn0.y, centerX + pOut0.x, pOut0.y);
             dxf += dxfLine(centerX + pInN.x, pInN.y, centerX + pOutN.x, pOutN.y);
         } else {
-            // 斜切正弦曲線寫入 DXF 折線段 (Polyline)
             for (let i = 0; i < pat.ptsInner.length - 1; i++) {
                 dxf += dxfLine(centerX + pat.ptsInner[i].x, pat.ptsInner[i].y, centerX + pat.ptsInner[i+1].x, pat.ptsInner[i+1].y);
             }
@@ -633,20 +832,15 @@ function exportDXF() {
     });
 
     dxf += "0\nENDSEC\n0\nEOF\n";
-    downloadFile(dxf, "expansion_chamber_pie_cuts_cm.dxf", "application/dxf");
+    downloadFile(dxf, "expansion_chamber_pie_cuts_mm.dxf", "application/dxf");
 }
 
 function dxfLine(x1, y1, x2, y2) {
-    return `0\nLINE\n8\n0\n10\n${x1.toFixed(4)}\n20\n${y1.toFixed(4)}\n11\n${x2.toFixed(4)}\n21\n${y2.toFixed(4)}\n`;
+    return `0\nLINE\n8\n0\n10\n${x1.toFixed(3)}\n20\n${y1.toFixed(3)}\n11\n${x2.toFixed(3)}\n21\n${y2.toFixed(3)}\n`;
 }
 
 function dxfArc(cx, cy, r, sa, ea) {
-    return `0\nARC\n8\n0\n10\n${cx.toFixed(4)}\n20\n${cy.toFixed(4)}\n40\n${r.toFixed(4)}\n50\n${sa.toFixed(4)}\n51\n${ea.toFixed(4)}\n`;
-}
-
-function exportSVG() {
-    const svgContent = document.getElementById('flatSvg').outerHTML;
-    downloadFile(svgContent, "expansion_chamber_patterns_cm.svg", "image/svg+xml");
+    return `0\nARC\n8\n0\n10\n${cx.toFixed(3)}\n20\n${cy.toFixed(3)}\n40\n${r.toFixed(3)}\n50\n${sa.toFixed(3)}\n51\n${ea.toFixed(3)}\n`;
 }
 
 function downloadFile(content, fileName, mimeType) {
