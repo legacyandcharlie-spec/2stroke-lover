@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2T 競技排氣管設計與 1:1 展開圖系統</title>
+    <title>2T 競技排氣管設計系統by大雞腿</title>
     <!-- 引入 Three.js, OrbitControls, Chart.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -208,7 +208,6 @@
             margin-bottom: 8px;
         }
 
-        /* 放大檢視 Modal 視窗 */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(5px);
@@ -256,17 +255,35 @@
     <div class="grid-layout">
         <!-- 左側控制面板 -->
         <div class="card no-print">
-            <div class="section-title">引擎與氣波參數</div>
+            <!-- 1. 缸徑與行程計算 -->
+            <div class="section-title">引擎規格 (缸徑 × 行程)</div>
             <div class="input-group">
                 <div class="input-field">
-                    <label>單缸排氣量 (Displacement)</label>
+                    <label>氣缸缸徑 (Bore)</label>
                     <div class="slider-row">
-                        <input type="range" id="ccSlider" min="50" max="500" value="136" oninput="syncVal('cc', this.value)">
-                        <input type="number" id="ccInput" class="num-input" value="136" onchange="syncVal('cc', this.value)">
-                        <span style="font-size:0.8rem;">cc</span>
+                        <input type="range" id="boreSlider" min="30" max="100" step="0.5" value="56" oninput="syncVal('bore', this.value)">
+                        <input type="number" id="boreInput" class="num-input" value="56" step="0.5" onchange="syncVal('bore', this.value)">
+                        <span style="font-size:0.8rem;">mm</span>
                     </div>
                 </div>
 
+                <div class="input-field">
+                    <label>曲軸行程 (Stroke)</label>
+                    <div class="slider-row">
+                        <input type="range" id="strokeSlider" min="30" max="100" step="0.5" value="55" oninput="syncVal('stroke', this.value)">
+                        <input type="number" id="strokeInput" class="num-input" value="55" step="0.5" onchange="syncVal('stroke', this.value)">
+                        <span style="font-size:0.8rem;">mm</span>
+                    </div>
+                </div>
+
+                <div style="font-size:0.82rem; background:rgba(56, 189, 248, 0.1); padding:6px 10px; border-radius:6px; color:var(--accent);">
+                    計算計算總排氣量: <b id="calcCCDisplay">135.5</b> cc
+                </div>
+            </div>
+
+            <!-- 2. 氣波與轉速參數 -->
+            <div class="section-title">氣波與極限轉速</div>
+            <div class="input-group">
                 <div class="input-field">
                     <label>排氣角 (Exhaust Duration)</label>
                     <div class="slider-row">
@@ -277,9 +294,8 @@
                 </div>
 
                 <div class="input-field">
-                    <label>目標峰值轉速 (Target RPM - 上限 25,000)</label>
+                    <label>目標峰值轉速 (Target RPM - 極限 25,000)</label>
                     <div class="slider-row">
-                        <!-- 極限提升至 25,000 RPM -->
                         <input type="range" id="rpmSlider" min="3000" max="25000" step="100" value="10000" oninput="syncVal('rpm', this.value)">
                         <input type="number" id="rpmInput" class="num-input" value="10000" min="3000" max="25000" onchange="syncVal('rpm', this.value)">
                     </div>
@@ -294,10 +310,11 @@
                 </div>
             </div>
 
-            <div class="section-title">頭段 3D 蝦殼彎曲姿態</div>
+            <!-- 3. 頭段與膨脹室彎曲姿態 -->
+            <div class="section-title">頭段與膨脹室彎曲姿態</div>
             <div class="input-group">
                 <div class="input-field">
-                    <label>頭段彎曲總角度 (Bend Angle)</label>
+                    <label>頭段彎曲角度 (Header Bend)</label>
                     <div class="slider-row">
                         <input type="range" id="bendSlider" min="0" max="90" step="5" value="60" oninput="syncVal('bend', this.value)">
                         <input type="number" id="bendInput" class="num-input" value="60" onchange="syncVal('bend', this.value)">
@@ -306,7 +323,7 @@
                 </div>
 
                 <div class="input-field">
-                    <label>蝦殼彎曲半徑 R (Radius)</label>
+                    <label>頭段彎曲半徑 R (Radius)</label>
                     <div class="slider-row">
                         <input type="range" id="radSlider" min="80" max="300" step="10" value="140" oninput="syncVal('rad', this.value)">
                         <input type="number" id="radInput" class="num-input" value="140" onchange="syncVal('rad', this.value)">
@@ -315,11 +332,32 @@
                 </div>
 
                 <div class="input-field">
-                    <label>蝦殼分節數 (Pie Cuts)</label>
+                    <label>頭段蝦殼分節數 (Pie Cuts)</label>
                     <input type="number" id="cutsInput" value="5" min="1" max="12" onchange="recalc()">
+                </div>
+
+                <!-- 新增：膨脹室整體角度彎曲功能 -->
+                <div class="input-field" style="margin-top:6px; border-top:1px dashed var(--border); padding-top:8px;">
+                    <label>膨脹室整體彎曲角度 (Belly Bend)</label>
+                    <div class="slider-row">
+                        <input type="range" id="bellyBendSlider" min="0" max="90" step="5" value="30" oninput="syncVal('bellyBend', this.value)">
+                        <input type="number" id="bellyBendInput" class="num-input" value="30" onchange="syncVal('bellyBend', this.value)">
+                        <span style="font-size:0.8rem;">°</span>
+                    </div>
+                </div>
+
+                <div class="input-field">
+                    <label>膨脹室彎曲轉向 (Direction)</label>
+                    <select id="bellyDirInput" onchange="recalc()">
+                        <option value="up">向上避讓 (Up)</option>
+                        <option value="down">向下繞管 (Down)</option>
+                        <option value="left">向左外擴 (Left)</option>
+                        <option value="right" selected>向右內縮 (Right)</option>
+                    </select>
                 </div>
             </div>
 
+            <!-- 4. 尾段消音器 -->
             <div class="section-title">尾段消音器 (Silencer)</div>
             <div class="input-group">
                 <div class="input-field">
@@ -499,22 +537,31 @@ function toggleAutoRotate() { isAutoRotate = !isAutoRotate; }
 function toggleWireframe() { isWireframe = !isWireframe; render3DPipe(); }
 function resetCamera() { if(pipeGroup3D) pipeGroup3D.rotation.set(0,0,0); }
 
-// 主幾何與波形演算
+// 主計算與圖形邏輯
 function recalc() {
-    const cc = parseFloat(document.getElementById('ccInput').value);
+    const bore = parseFloat(document.getElementById('boreInput').value);
+    const stroke = parseFloat(document.getElementById('strokeInput').value);
+
+    // 缸徑 × 行程 計算排氣量 (cc)
+    const cc = (Math.PI / 4) * Math.pow(bore / 10, 2) * (stroke / 10);
+    document.getElementById('calcCCDisplay').innerText = cc.toFixed(1);
+
     const dur = parseFloat(document.getElementById('durInput').value);
     const rpm = parseFloat(document.getElementById('rpmInput').value);
     const egt = parseFloat(document.getElementById('egtInput').value);
     const bendAngle = parseFloat(document.getElementById('bendInput').value);
     const bendRadius = parseFloat(document.getElementById('radInput').value);
     const bendCuts = parseInt(document.getElementById('cutsInput').value);
+    const bellyBend = parseFloat(document.getElementById('bellyBendInput').value);
+    const bellyDir = document.getElementById('bellyDirInput').value;
+
     const silL = parseFloat(document.getElementById('silLInput').value);
     const silD = parseFloat(document.getElementById('silDInput').value);
 
     const soundSpeed = 20.05 * Math.sqrt(273.15 + egt);
     const tunedLength = (dur * soundSpeed * 1000) / (12 * rpm);
 
-    // 管徑基礎計算
+    // 排氣管口徑算式
     const headerD = Math.sqrt(cc / 136) * 35;
     const headerEndD = headerD * 1.08;
     const bellyD = headerD * 2.7;
@@ -527,7 +574,7 @@ function recalc() {
 
     currentSegments = [];
 
-    // 1. 蝦殼彎節演算
+    // 1. 頭段蝦殼彎節
     if (bendAngle > 0 && bendCuts > 0) {
         const miterAngleDeg = bendAngle / (2 * bendCuts);
         const betaRad = (bendAngle * Math.PI / 180) / (2 * bendCuts);
@@ -545,6 +592,7 @@ function recalc() {
                 l: subL, d1: d1, d2: d2,
                 beta1: miterAngleDeg, beta2: miterAngleDeg,
                 turnAngle: bendAngle / bendCuts,
+                turnAxis: 'z',
                 info: `平均周長 ${circ.toFixed(1)}mm (正弦高低差 ${hDiff.toFixed(1)}mm)`,
                 isBend: true
             });
@@ -558,7 +606,13 @@ function recalc() {
         });
     }
 
-    // 2. 擴散錐
+    // 計算膨脹室彎曲方向的轉向軸
+    let bellyAxis = 'z';
+    if(bellyDir === 'left' || bellyDir === 'right') bellyAxis = 'y';
+
+    const halfBellyBend = bellyBend / 2;
+
+    // 2. 擴散錐 ( Diffuser ) - 入口承接，出口做 halfBellyBend 切角
     const r1_diff = headerEndD / 2, r2_diff = bellyD / 2;
     const S_diff = Math.sqrt(diffL * diffL + Math.pow(r2_diff - r1_diff, 2));
     const Rout_diff = (r2_diff * S_diff) / (r2_diff - r1_diff);
@@ -566,37 +620,39 @@ function recalc() {
 
     currentSegments.push({
         name: "2. 擴散錐 (Diffuser)", l: diffL, d1: headerEndD, d2: bellyD,
-        beta1: 0, beta2: 0, turnAngle: 0,
-        info: `圓錐扇角 ${phiDeg_diff.toFixed(1)}° (Rout: ${Rout_diff.toFixed(1)}mm)`
+        beta1: 0, beta2: halfBellyBend,
+        turnAngle: halfBellyBend, turnAxis: bellyAxis, bellyDir: bellyDir,
+        info: `圓錐扇角 ${phiDeg_diff.toFixed(1)}° (切角 ${halfBellyBend.toFixed(1)}°)`
     });
 
-    // 3. 膨脹室
+    // 3. 膨脹室 ( Belly ) - 兩端皆帶斜切
     currentSegments.push({
         name: "3. 膨脹室 (Belly)", l: bellyL, d1: bellyD, d2: bellyD,
-        beta1: 0, beta2: 0, turnAngle: 0,
-        info: `周長 ${(Math.PI * bellyD).toFixed(1)}mm`
+        beta1: halfBellyBend, beta2: halfBellyBend,
+        turnAngle: halfBellyBend, turnAxis: bellyAxis, bellyDir: bellyDir,
+        info: `周長 ${(Math.PI * bellyD).toFixed(1)}mm (整體彎角 ${bellyBend.toFixed(1)}°)`
     });
 
-    // 4. 反射錐
+    // 4. 反射錐 ( Baffle )
     const r1_baff = bellyD / 2, r2_baff = stingerD / 2;
-    const S_baff = Math.sqrt(baffleL * baffleL + Math.pow(r1_baff - r2_baff, 2));
+    const S_baff = Math.sqrt(r1_baff * r1_baff + Math.pow(r1_baff - r2_baff, 2));
     const Rout_baff = (r1_baff * S_baff) / (r1_baff - r2_baff);
     const phiDeg_baff = 360 * (r1_baff / Rout_baff);
 
     currentSegments.push({
         name: "4. 反射錐 (Baffle)", l: baffleL, d1: bellyD, d2: stingerD,
-        beta1: 0, beta2: 0, turnAngle: 0,
-        info: `圓錐扇角 ${phiDeg_baff.toFixed(1)}° (Rout: ${Rout_baff.toFixed(1)}mm)`
+        beta1: halfBellyBend, beta2: 0, turnAngle: 0,
+        info: `圓錐扇角 ${phiDeg_baff.toFixed(1)}°`
     });
 
-    // 5. 尾管
+    // 5. 尾管 (Stinger)
     currentSegments.push({
         name: "5. 尾管 (Stinger)", l: stingerD * 10, d1: stingerD, d2: stingerD,
         beta1: 0, beta2: 0, turnAngle: 0,
         info: `周長 ${(Math.PI * stingerD).toFixed(1)}mm`
     });
 
-    // 6. 消音器
+    // 6. 消音器 (Silencer)
     currentSegments.push({
         name: "6. 消音器 (Silencer)", l: silL, d1: silD, d2: silD,
         beta1: 0, beta2: 0, turnAngle: 0, isSilencer: true,
@@ -606,11 +662,11 @@ function recalc() {
     const backpressure = (0.00002 * Math.pow(rpm, 1.3) * (silL / Math.pow(silD, 2))).toFixed(2);
 
     document.getElementById('summaryBox').innerHTML = `
-        • 廢氣聲速: <b>${soundSpeed.toFixed(1)} m/s</b> | 總諧振氣波長: <b>${tunedLength.toFixed(1)} mm</b><br>
-        • 消音器流阻背壓: <b>${backpressure} kPa</b> | 膨脹管比值: <b>${(bellyD/headerD).toFixed(2)}x</b>
+        • 缸徑×行程: <b>${bore}mm × ${stroke}mm (${cc.toFixed(1)} cc)</b><br>
+        • 廢氣聲速: <b>${soundSpeed.toFixed(1)} m/s</b> | 諧振長: <b>${tunedLength.toFixed(1)} mm</b> | 背壓: <b>${backpressure} kPa</b>
     `;
 
-    document.getElementById('printHeaderInfo').innerText = `排氣量: ${cc}cc | 目標轉速: ${rpm}RPM | 諧振長: ${tunedLength.toFixed(1)}mm | 日期: ${new Date().toLocaleDateString()}`;
+    document.getElementById('printHeaderInfo').innerText = `缸徑: ${bore}mm | 行程: ${stroke}mm | 排氣量: ${cc.toFixed(1)}cc | 目標轉速: ${rpm}RPM | 諧振長: ${tunedLength.toFixed(1)}mm`;
 
     render3DPipe();
     renderUnfoldSVGs();
@@ -652,9 +708,17 @@ function render3DPipe() {
 
         pos.add(dir.clone().multiplyScalar(seg.l));
 
-        if (seg.turnAngle) {
+        if (seg.turnAngle > 0) {
             const turnRad = (seg.turnAngle * Math.PI / 180);
-            const axis = new THREE.Vector3(0, 0, 1);
+            let axis = new THREE.Vector3(0, 0, 1);
+
+            if (seg.turnAxis === 'y') {
+                axis = new THREE.Vector3(0, 1, 0);
+                if (seg.bellyDir === 'left') turnRad *= -1;
+            } else {
+                if (seg.bellyDir === 'down') turnRad *= -1;
+            }
+
             dir.applyAxisAngle(axis, turnRad);
         }
     });
@@ -706,7 +770,7 @@ function renderUnfoldSVGs() {
             const pathD = `M ${botPts.join(' L ')} L ${topPts.reverse().join(' L ')} Z`;
 
             svgHtml = `
-                <div class="unfold-item-title">${seg.name} (展開周長: ${circAvg.toFixed(1)}mm | 中心長: ${L.toFixed(1)}mm)</div>
+                <div class="unfold-item-title">${seg.name} (展開周長: ${circAvg.toFixed(1)}mm | 斜切角 &beta;1:${seg.beta1.toFixed(1)}° &beta;2:${seg.beta2.toFixed(1)}°)</div>
                 <svg width="${viewW}mm" height="${viewH}mm" viewBox="0 0 ${viewW} ${viewH}">
                     <line x1="${xOff}" y1="${yOff + 15}" x2="${xOff + 100}" y2="${yOff + 15}" stroke="${strokeColor}" stroke-width="2"/>
                     <text x="${xOff}" y="${yOff + 26}" fill="var(--text-main)" font-size="10">100mm 實體校正尺</text>
@@ -844,11 +908,9 @@ function updateChartColors() {
     });
 }
 
-// 動態適配高轉速（最高 30,000 RPM）的馬力與扭力波形計算
 function updateCharts(targetRpm, tunedL, a, cc) {
     if(!hpChartInst) return;
 
-    // 動態計算轉速範圍：從 0.3*Target 至 1.4*Target，確保波峰完整居中
     const minRpm = Math.max(2000, Math.floor((targetRpm * 0.3) / 500) * 500);
     const maxRpm = Math.min(30000, Math.ceil((targetRpm * 1.4) / 500) * 500);
     const stepRpm = Math.max(250, Math.round((maxRpm - minRpm) / 30 / 100) * 100);
@@ -856,14 +918,12 @@ function updateCharts(targetRpm, tunedL, a, cc) {
     const rpms = [], hps = [], torques = [];
     let maxHp = 0, maxHpRpm = 0, maxTq = 0, maxTqRpm = 0;
 
-    // 以 2T 引擎馬力係數進行實施運算
     const basePowerCoeff = (cc / 136) * 1.35;
 
     for(let r = minRpm; r <= maxRpm; r += stepRpm) {
         rpms.push(r);
         const ratio = r / targetRpm;
 
-        // 諧振帶高斯效能曲線
         const efficiency = Math.exp(-Math.pow((ratio - 1) / 0.16, 2));
         const hp = (r / 480) * basePowerCoeff * (0.2 + 0.8 * efficiency);
         const tq = (hp * 716.2) / r * 9.80665;
@@ -887,7 +947,6 @@ function updateCharts(targetRpm, tunedL, a, cc) {
         🎯 預估極限峰值：<b>${maxHp} HP</b> @ ${maxHpRpm.toLocaleString()} RPM | 最大扭力：<b>${maxTq} Nm</b> @ ${maxTqRpm.toLocaleString()} RPM
     `;
 
-    // 排氣門壓力波形
     const degs = [], waves = [];
     for(let d = 0; d <= 200; d += 5) {
         degs.push(`${d}°`);
@@ -908,7 +967,6 @@ function updateCharts(targetRpm, tunedL, a, cc) {
     }
 }
 
-// 彈出放大 Modal 繪製
 function openChartModal() {
     document.getElementById('chartModal').style.display = 'flex';
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
