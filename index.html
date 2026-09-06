@@ -184,37 +184,60 @@
             align-items: center;
         }
 
-        /* 1:1 多頁 A4 列印專用區域 */
+        /* 1:1 列印區域 */
         #printArea { display: none; }
 
         @media print {
-            @page { size: A4 portrait; margin: 10mm; }
+            @page {
+                size: auto; /* 自動搭配最適紙張尺寸 (A4/A3/直向/橫向) */
+                margin: 10mm;
+            }
             body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
             .no-print, header, .btn-group, .grid-layout, .modal-overlay { display: none !important; }
-            #printArea { display: block !important; }
+            #printArea { display: block !important; width: 100% !important; }
 
             .print-page-title {
-                font-size: 14pt;
+                font-size: 15pt;
                 font-weight: bold;
+                text-align: center;
                 margin-bottom: 5mm;
                 border-bottom: 2px solid #000;
-                padding-bottom: 2mm;
+                padding-bottom: 3mm;
+            }
+            .print-instructions {
+                font-size: 9.5pt;
+                margin-bottom: 8mm;
+                background: #f1f5f9;
+                padding: 3mm 5mm;
+                border-radius: 4px;
+                border: 1px solid #cbd5e1;
             }
             .print-card {
+                page-break-after: always;
+                break-after: page;
                 page-break-inside: avoid;
                 break-inside: avoid;
-                margin-bottom: 15mm;
-                padding-bottom: 10mm;
-                border-bottom: 1px dashed #ccc;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important; /* 置中列印，防止偏左 */
+                justify-content: center !important;
+                margin: 0 auto 10mm auto !important;
+                padding: 5mm 0;
             }
-            .print-card h4 { margin: 0 0 5mm 0; font-size: 11pt; color: #000; }
+            .print-card:last-child {
+                page-break-after: auto;
+                break-after: auto;
+            }
+            .print-card h4 { margin: 0 0 4mm 0; font-size: 11pt; color: #000; text-align: center; }
             .print-svg {
                 background: white !important;
                 overflow: visible !important;
+                display: block !important;
+                margin: 0 auto !important;
             }
             .print-svg .flat-pattern { stroke: #000000 !important; stroke-width: 1.2px !important; fill: none !important; }
-            .print-svg .ruler-line { stroke: #000 !important; }
-            .print-svg .ruler-text { fill: #000 !important; }
+            .print-svg .ruler-line { stroke: #000 !important; stroke-width: 1.5px !important; }
+            .print-svg .ruler-text { fill: #000 !important; font-size: 11px !important; font-weight: bold !important; }
         }
     </style>
 </head>
@@ -297,7 +320,7 @@
                 <button class="btn" onclick="exportDXF()">💾 匯出 CAD (.DXF - mm)</button>
                 <button class="btn btn-outline" onclick="copyAsImage()">📋 複製展開圖圖片</button>
                 <button class="btn btn-outline" onclick="downloadPNG()">🖼️ 下載 PNG 圖片</button>
-                <button class="btn btn-outline" onclick="print1to1()">🖨️ 列印 1:1 多頁 A4 (PDF)</button>
+                <button class="btn btn-outline" onclick="print1to1()">🖨️ 列印 1:1 實體展開圖 (PDF)</button>
             </div>
 
             <div id="summaryBox" class="no-print" style="font-size:0.88rem; line-height:1.5; background:#090d16; padding:10px; border-radius:6px; border:1px solid var(--border);"></div>
@@ -354,9 +377,12 @@
 <!-- 1:1 列印專用隱藏區域 -->
 <div id="printArea">
     <div class="print-page-title">2T 膨脹管 1:1 實體鈑金展開圖紙 (單位: mm)</div>
-    <p style="font-size:10pt; margin-bottom:10mm;">
-        ⚠️ <b>列印指示：</b> 請於印表機設定中務必勾選「<b>實際大小</b>」或「<b>100% 比例</b>」（切勿勾選適合頁面）。請測量每一區段下方之 <b>100 mm (10 cm) 校正基準線</b> 以確保尺寸完全精準。
-    </p>
+    <div class="print-instructions">
+        ⚠️ <b>1:1 精準列印設定指示：</b><br>
+        1. <b>紙張尺寸與方向</b>：可選擇「<b>自動</b>」或針對大尺寸構件選擇 <b>A4 / A3 / 橫向 (Landscape)</b> 紙張。<br>
+        2. <b>比例設定</b>：請務必將印表機比例設定為「<b>實際大小</b>」或「<b>100%</b>」（請勿勾選「適合頁面」或「縮放」）。<br>
+        3. <b>尺寸驗證</b>：列印完成後，請務必使用直尺測量每個圖形上方的 <b>100 mm (10 cm) 校正基準線</b>。
+    </div>
     <div id="printCardsContainer"></div>
 </div>
 
@@ -393,12 +419,12 @@ function calculatePipe() {
 
     currentSegments = [];
 
-    // 處理頭段蝦殼分節 (Pie Cuts)
+    // 頭段蝦殼彎分節 (Pie Cuts)
     if (totalBendAngle > 0 && bendCuts > 1) {
         const subL = totalHeaderL / bendCuts;
         const startD = headerD;
         const endD = headerD * 1.04;
-        const miterAngle = (totalBendAngle / bendCuts) / 2; // 單邊斜切角 (Deg)
+        const miterAngle = (totalBendAngle / bendCuts) / 2;
 
         for (let i = 0; i < bendCuts; i++) {
             const d1 = startD + (endD - startD) * (i / bendCuts);
@@ -422,7 +448,7 @@ function calculatePipe() {
         });
     }
 
-    // 後續錐管區段 (單位: mm)
+    // 錐管區段 (單位: mm)
     currentSegments.push(
         { name: "2a. 一級擴散錐", l: diff1L, d1: headerD * 1.04, d2: diff1D2, beta1: 0, beta2: 0, turnAngle: 0 },
         { name: "2b. 二級擴散錐", l: diff2L, d1: diff1D2, d2: bellyD, beta1: 0, beta2: 0, turnAngle: 0 },
@@ -431,7 +457,7 @@ function calculatePipe() {
         { name: "5. 尾管 (Stinger)", l: stingerL, d1: stingerD, d2: stingerD, beta1: 0, beta2: 0, turnAngle: 0 }
     );
 
-    // 2D 鈑金展開幾何算術 (單位: mm)
+    // 2D 鈑金展開計算 (單位: mm)
     flatPatterns = currentSegments.map(seg => {
         const r1 = seg.d1 / 2;
         const r2 = seg.d2 / 2;
@@ -519,7 +545,6 @@ function calculatePipe() {
     renderTable();
 }
 
-// 繪製排氣管總成 (全自動計算邊界，解決裁切問題)
 function renderPipeSVG(targetSvgId) {
     const svg = document.getElementById(targetSvgId);
     svg.innerHTML = '';
@@ -570,7 +595,7 @@ function renderPipeSVG(targetSvgId) {
         curAngleRad = nextAngleRad;
     });
 
-    const margin = 30; // mm
+    const margin = 30;
     const width = maxX - minX + (margin * 2);
     const height = maxY - minY + (margin * 2);
 
@@ -602,10 +627,10 @@ function renderFlatSVG() {
         if (h > maxHeightMM) maxHeightMM = h;
     });
 
-    maxHeightMM += 40; // 留給 100mm 校正尺
+    maxHeightMM += 40;
     svg.setAttribute("viewBox", `0 0 ${totalWidthMM + 40} ${maxHeightMM}`);
 
-    // 100mm (10cm) 校正尺
+    // 100mm 校正尺
     const rulerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
     const rulerX1 = 20, rulerY = 25, rulerX2 = rulerX1 + 100;
     rulerGroup.innerHTML = `
@@ -677,7 +702,7 @@ function renderTable() {
     });
 }
 
-// 彈窗功能
+// 彈窗檢視
 function openModal() {
     renderPipeSVG("modalPipeSvg");
     document.getElementById('pipeModal').style.display = 'flex';
@@ -688,7 +713,7 @@ function closeModal(e) {
     }
 }
 
-// 複製圖像與下載 PNG
+// 複製與下載 PNG
 function getSvgCanvas(callback) {
     const svgEl = document.getElementById('flatSvg');
     const svgData = new XMLSerializer().serializeToString(svgEl);
@@ -737,7 +762,7 @@ function downloadPNG() {
     });
 }
 
-// 1:1 多頁 A4 精準列印
+// 1:1 精準列印 (幾何 ViewBox 算繪，解決偏左與裁切 Bug)
 function print1to1() {
     const container = document.getElementById('printCardsContainer');
     container.innerHTML = '';
@@ -746,38 +771,53 @@ function print1to1() {
         const card = document.createElement('div');
         card.className = 'print-card';
 
-        const wMM = pat.bbox.maxX - pat.bbox.minX + 20;
-        const hMM = pat.bbox.maxY - pat.bbox.minY + 35;
-        const centerXMM = (wMM / 2);
-        const baseYMM = hMM - pat.bbox.minY - 10;
+        const minX = pat.bbox.minX;
+        const maxX = pat.bbox.maxX;
+        const minY = pat.bbox.minY;
+        const maxY = pat.bbox.maxY;
+
+        const pWidth = maxX - minX;
+        const pHeight = maxY - minY;
+
+        const margin = 15; // 15mm 安全留白
+        const rulerH = 20; // 20mm 校正尺高度
+
+        const vbX = minX - margin;
+        const vbY = minY - margin - rulerH;
+        const vbW = pWidth + (margin * 2);
+        const vbH = pHeight + (margin * 2) + rulerH;
 
         let pathData = "";
 
         if (!pat.isMitered && pat.isCylinder) {
             const hw = pat.width / 2;
-            pathData = `M ${centerXMM - hw} ${baseYMM} L ${centerXMM + hw} ${baseYMM} L ${centerXMM + hw} ${baseYMM - pat.height} L ${centerXMM - hw} ${baseYMM - pat.height} Z`;
+            pathData = `M ${-hw} 0 L ${hw} 0 L ${hw} ${pat.height} L ${-hw} ${pat.height} Z`;
         } else if (!pat.isMitered) {
             const { ptsInner, ptsOuter } = pat;
-            const px1 = centerXMM + ptsOuter[0].x, py1 = baseYMM - ptsOuter[0].y;
-            const px2 = centerXMM + ptsOuter[ptsOuter.length-1].x, py2 = baseYMM - ptsOuter[ptsOuter.length-1].y;
-            const px3 = centerXMM + ptsInner[ptsInner.length-1].x, py3 = baseYMM - ptsInner[ptsInner.length-1].y;
-            const px4 = centerXMM + ptsInner[0].x, py4 = baseYMM - ptsInner[0].y;
+            const px1 = ptsOuter[0].x, py1 = ptsOuter[0].y;
+            const px2 = ptsOuter[ptsOuter.length-1].x, py2 = ptsOuter[ptsOuter.length-1].y;
+            const px3 = ptsInner[ptsInner.length-1].x, py3 = ptsInner[ptsInner.length-1].y;
+            const px4 = ptsInner[0].x, py4 = ptsInner[0].y;
             const largeArc = pat.angle > 180 ? 1 : 0;
             pathData = `M ${px1} ${py1} A ${pat.Rout} ${pat.Rout} 0 ${largeArc} 1 ${px2} ${py2} L ${px3} ${py3} A ${pat.Rin} ${pat.Rin} 0 ${largeArc} 0 ${px4} ${py4} Z`;
         } else {
-            const innerStr = pat.ptsInner.map((p, i) => `${i === 0 ? 'M' : 'L'} ${centerXMM + p.x} ${baseYMM - p.y}`).join(' ');
-            const outerStr = pat.ptsOuter.slice().reverse().map(p => `L ${centerXMM + p.x} ${baseYMM - p.y}`).join(' ');
+            const innerStr = pat.ptsInner.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+            const outerStr = pat.ptsOuter.slice().reverse().map(p => `L ${p.x} ${p.y}`).join(' ');
             pathData = `${innerStr} ${outerStr} Z`;
         }
 
+        const rulerX1 = minX;
+        const rulerX2 = minX + 100;
+        const rulerY = minY - margin - 5;
+
         card.innerHTML = `
             <h4><b>區段：${pat.name}</b> (長度: ${pat.l.toFixed(1)}mm | Ø${pat.d1.toFixed(1)}mm ~ Ø${pat.d2.toFixed(1)}mm)</h4>
-            <svg class="print-svg" style="width:${wMM}mm; height:${hMM}mm;" viewBox="0 0 ${wMM} ${hMM}">
+            <svg class="print-svg" style="width:${vbW.toFixed(1)}mm; height:${vbH.toFixed(1)}mm;" viewBox="${vbX.toFixed(2)} ${vbY.toFixed(2)} ${vbW.toFixed(2)} ${vbH.toFixed(2)}">
                 <g>
-                    <line x1="10" y1="18" x2="110" y2="18" class="ruler-line" />
-                    <line x1="10" y1="13" x2="10" y2="23" class="ruler-line" />
-                    <line x1="110" y1="13" x2="110" y2="23" class="ruler-line" />
-                    <text x="10" y="9" class="ruler-text">100 mm (10 cm) 實體校正線</text>
+                    <line x1="${rulerX1}" y1="${rulerY}" x2="${rulerX2}" y2="${rulerY}" class="ruler-line" />
+                    <line x1="${rulerX1}" y1="${rulerY - 4}" x2="${rulerX1}" y2="${rulerY + 4}" class="ruler-line" />
+                    <line x1="${rulerX2}" y1="${rulerY - 4}" x2="${rulerX2}" y2="${rulerY + 4}" class="ruler-line" />
+                    <text x="${rulerX1}" y="${rulerY - 7}" class="ruler-text">100 mm (10 cm) 實體校正線</text>
                 </g>
                 <path d="${pathData}" class="flat-pattern" />
             </svg>
@@ -791,7 +831,7 @@ function print1to1() {
 function exportDXF() {
     let dxf = "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n";
     let curX = 0;
-    const gap = 50.0; // 50 mm 間距
+    const gap = 50.0;
 
     flatPatterns.forEach(pat => {
         const w = pat.bbox.maxX - pat.bbox.minX;
