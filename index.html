@@ -190,19 +190,20 @@
         }
 
         .unfold-item {
-            margin-bottom: 24px;
+            margin-bottom: 28px;
             padding-bottom: 16px;
             border-bottom: 1px dashed var(--border);
         }
         .unfold-item-title {
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             font-weight: bold;
             color: var(--accent);
             margin-bottom: 8px;
         }
 
-        /* 1:1 列印專用樣式 */
         .print-only { display: none; }
+
+        /* 1:1 彈性紙張列印樣式 (不限制 A4 / A3 / 繪圖機捲筒紙) */
         @media print {
             body { background: #fff !important; color: #000 !important; padding: 0 !important; }
             .no-print, header, .header-actions, .grid-layout > .card:first-child, .tab-bar, .toolbar-3d, #tab3D, #tabSim { display: none !important; }
@@ -210,11 +211,11 @@
             .card { border: none !important; box-shadow: none !important; padding: 0 !important; background: transparent !important; }
             .tab-content { display: block !important; }
             .print-only { display: block !important; }
-            .svg-container { background: #fff !important; border: none !important; padding: 0 !important; }
-            .unfold-item { page-break-inside: avoid; border-bottom: 1px solid #000 !important; margin-bottom: 20mm; }
+            .svg-container { background: #fff !important; border: none !important; padding: 0 !important; overflow: visible !important; }
+            .unfold-item { page-break-inside: avoid; border-bottom: 1px stroke #666 !important; margin-bottom: 15mm; }
             svg { stroke: #000 !important; fill: none !important; }
-            path { fill: none !important; stroke: #000 !important; stroke-width: 1px !important; }
-            text { fill: #000 !important; }
+            path, rect { fill: none !important; stroke: #000 !important; stroke-width: 1px !important; }
+            text { fill: #000 !important; font-weight: bold; }
         }
     </style>
 </head>
@@ -225,7 +226,7 @@
         <h1>2T 競技排氣管設計與氣波模擬系統</h1>
         <div class="header-actions">
             <button class="btn btn-outline" onclick="toggleTheme()" id="themeBtn">🌙 深色模式</button>
-            <button class="btn btn-outline" onclick="triggerPrint()">🖨️ 1:1 列印展開圖</button>
+            <button class="btn btn-outline" onclick="triggerPrint()">🖨️ 列印 1:1 展開圖</button>
             <button class="btn" onclick="exportDXF()">💾 匯出 CAD (.DXF)</button>
         </div>
     </header>
@@ -352,12 +353,12 @@
             <!-- Tab 3: 2D 1:1 展開圖與數據表格 -->
             <div id="tabFlat" class="tab-content">
                 <div class="print-only" style="margin-bottom:15px; border-bottom:2px solid #000; padding-bottom:10px;">
-                    <h2>2T 競技排氣管 1:1 圖紙展開圖 (請以 100% 比例列印)</h2>
+                    <h2>2T 競技排氣管 1:1 圖紙展開圖 (請使用實際大小 / 100% 比例輸出)</h2>
                     <p id="printHeaderInfo" style="font-size:12px;"></p>
                 </div>
 
                 <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <span style="font-size:0.82rem; color:var(--text-sub);">💡 展開圖已精確計算切角正弦波形與圓錐扇形，可直接列印進行打樣金屬裁切。</span>
+                    <span style="font-size:0.82rem; color:var(--text-sub);">💡 展開圖支援任意紙張（A4 / A3 / 繪圖機捲筒紙），請在列印時選擇「實際大小 (100%)」。</span>
                     <button class="btn btn-outline" onclick="triggerPrint()">🖨️ 列印 1:1 展開圖</button>
                 </div>
 
@@ -372,7 +373,7 @@
                                 <th>入口 ØD1</th>
                                 <th>出口 ØD2</th>
                                 <th>兩端切角 &beta;1/&beta;2</th>
-                                <th>周長 / 扇形角度</th>
+                                <th>展開幾何資訊 (周長 / 圓錐張角 / 切角落差)</th>
                             </tr>
                         </thead>
                         <tbody id="flatTableBody"></tbody>
@@ -473,7 +474,9 @@ function recalc() {
     const soundSpeed = 20.05 * Math.sqrt(273.15 + egt);
     const tunedLength = (dur * soundSpeed * 1000) / (12 * rpm);
 
+    // 管徑基礎計算
     const headerD = Math.sqrt(cc / 136) * 35;
+    const headerEndD = headerD * 1.08; // 修正：頭段出口漸擴至 1.08 倍（Ø37.8mm），無縫對接擴散錐
     const bellyD = headerD * 2.7;
     const stingerD = headerD * 0.6;
 
@@ -484,34 +487,82 @@ function recalc() {
 
     currentSegments = [];
 
-    // 正確的蝦殼切角演算 (Miter angle = BendAngle / (2 * Cuts))
+    // 1. 蝦殼彎節演算 (修正插值邏輯與周長切角計算)
     if (bendAngle > 0 && bendCuts > 0) {
         const miterAngleDeg = bendAngle / (2 * bendCuts);
-        const subL = (2 * bendRadius * Math.tan((bendAngle * Math.PI / 180) / (2 * bendCuts)));
+        const betaRad = (bendAngle * Math.PI / 180) / (2 * bendCuts);
+        const subL = 2 * bendRadius * Math.tan(betaRad);
 
         for (let i = 0; i < bendCuts; i++) {
-            const d1 = headerD + (headerD * 0.08 - headerD) * (i / bendCuts);
-            const d2 = headerD + (headerD * 0.08 - headerD) * ((i + 1) / bendCuts);
+            const d1 = headerD + (headerEndD - headerD) * (i / bendCuts);
+            const d2 = headerD + (headerEndD - headerD) * ((i + 1) / bendCuts);
+            const avgD = (d1 + d2) / 2;
+            const circ = Math.PI * avgD;
+            const hDiff = avgD * Math.tan(betaRad); // 正弦曲線上下高低差
+
             currentSegments.push({
                 name: `1-${i+1}. 蝦殼彎節 ${i+1}/${bendCuts}`,
                 l: subL, d1: d1, d2: d2,
                 beta1: miterAngleDeg,
                 beta2: miterAngleDeg,
                 turnAngle: bendAngle / bendCuts,
+                info: `平均周長 ${circ.toFixed(1)}mm (正弦高低差 ${hDiff.toFixed(1)}mm)`,
                 isBend: true
             });
         }
     } else {
-        currentSegments.push({ name: "1. 直線頭段", l: totalHeaderL, d1: headerD, d2: headerD*1.08, beta1:0, beta2:0, turnAngle:0 });
+        const avgD = (headerD + headerEndD) / 2;
+        currentSegments.push({
+            name: "1. 直線頭段", l: totalHeaderL, d1: headerD, d2: headerEndD,
+            beta1: 0, beta2: 0, turnAngle: 0,
+            info: `周長 ${(Math.PI * avgD).toFixed(1)}mm`
+        });
     }
 
-    currentSegments.push(
-        { name: "2. 擴散錐 (Diffuser)", l: diffL, d1: headerD*1.08, d2: bellyD, beta1:0, beta2:0, turnAngle:0 },
-        { name: "3. 膨脹室 (Belly)", l: bellyL, d1: bellyD, d2: bellyD, beta1:0, beta2:0, turnAngle:0 },
-        { name: "4. 反射錐 (Baffle)", l: baffleL, d1: bellyD, d2: stingerD, beta1:0, beta2:0, turnAngle:0 },
-        { name: "5. 尾管 (Stinger)", l: stingerD*10, d1: stingerD, d2: stingerD, beta1:0, beta2:0, turnAngle:0 },
-        { name: "6. 消音器 (Silencer)", l: silL, d1: silD, d2: silD, beta1:0, beta2:0, turnAngle:0, isSilencer: true }
-    );
+    // 2. 擴散錐 (Diffuser) - 計算圓錐扇形參數
+    const r1_diff = headerEndD / 2, r2_diff = bellyD / 2;
+    const S_diff = Math.sqrt(diffL * diffL + Math.pow(r2_diff - r1_diff, 2));
+    const Rout_diff = (r2_diff * S_diff) / (r2_diff - r1_diff);
+    const phiDeg_diff = 360 * (r2_diff / Rout_diff);
+
+    currentSegments.push({
+        name: "2. 擴散錐 (Diffuser)", l: diffL, d1: headerEndD, d2: bellyD,
+        beta1: 0, beta2: 0, turnAngle: 0,
+        info: `圓錐扇角 ${phiDeg_diff.toFixed(1)}° (Rout: ${Rout_diff.toFixed(1)}mm)`
+    });
+
+    // 3. 膨脹室 (Belly)
+    currentSegments.push({
+        name: "3. 膨脹室 (Belly)", l: bellyL, d1: bellyD, d2: bellyD,
+        beta1: 0, beta2: 0, turnAngle: 0,
+        info: `周長 ${(Math.PI * bellyD).toFixed(1)}mm`
+    });
+
+    // 4. 反射錐 (Baffle) - 計算圓錐扇形參數
+    const r1_baff = bellyD / 2, r2_baff = stingerD / 2;
+    const S_baff = Math.sqrt(baffleL * baffleL + Math.pow(r1_baff - r2_baff, 2));
+    const Rout_baff = (r1_baff * S_baff) / (r1_baff - r2_baff);
+    const phiDeg_baff = 360 * (r1_baff / Rout_baff);
+
+    currentSegments.push({
+        name: "4. 反射錐 (Baffle)", l: baffleL, d1: bellyD, d2: stingerD,
+        beta1: 0, beta2: 0, turnAngle: 0,
+        info: `圓錐扇角 ${phiDeg_baff.toFixed(1)}° (Rout: ${Rout_baff.toFixed(1)}mm)`
+    });
+
+    // 5. 尾管 (Stinger)
+    currentSegments.push({
+        name: "5. 尾管 (Stinger)", l: stingerD * 10, d1: stingerD, d2: stingerD,
+        beta1: 0, beta2: 0, turnAngle: 0,
+        info: `周長 ${(Math.PI * stingerD).toFixed(1)}mm`
+    });
+
+    // 6. 消音器 (Silencer)
+    currentSegments.push({
+        name: "6. 消音器 (Silencer)", l: silL, d1: silD, d2: silD,
+        beta1: 0, beta2: 0, turnAngle: 0, isSilencer: true,
+        info: `周長 ${(Math.PI * silD).toFixed(1)}mm`
+    });
 
     const backpressure = (0.00002 * Math.pow(rpm, 1.3) * (silL / Math.pow(silD, 2))).toFixed(2);
 
@@ -575,7 +626,7 @@ function render3DPipe() {
     pipeGroup3D.position.sub(center);
 }
 
-// 精確 2D 蝦殼正弦曲線與圓錐展開演算法
+// 精確 2D SVG 展開圖繪製 (包含正弦切角與圓錐弧形邊界校正)
 function renderUnfoldSVGs() {
     const container = document.getElementById('svgContainer');
     container.innerHTML = '';
@@ -587,71 +638,88 @@ function renderUnfoldSVGs() {
         let svgHtml = '';
         const strokeColor = 'var(--accent)';
 
-        // 1. 蝦殼彎節 (Mitered Cut Segment)
+        // 1. 蝦殼彎節 (Mitered Cut Segment - 精確正弦波)
         if (seg.beta1 > 0 || seg.beta2 > 0) {
-            const dAvg = (seg.d1 + seg.d2) / 2;
-            const C = Math.PI * dAvg;
+            const circAvg = Math.PI * ((seg.d1 + seg.d2) / 2);
             const L = seg.l;
             const b1 = seg.beta1 * Math.PI / 180;
             const b2 = seg.beta2 * Math.PI / 180;
-            const Npts = 48;
+            const Npts = 64;
+
+            const padW = 40, padH = 40;
+            const maxH = L + (seg.d1 / 2) * Math.tan(b1) + (seg.d2 / 2) * Math.tan(b2) + 15;
+            const viewW = circAvg + padW;
+            const viewH = maxH + padH;
+
+            const xOff = padW / 2;
+            const yOff = maxH + (padH / 2) - 10;
 
             let topPts = [], botPts = [];
             for (let i = 0; i <= Npts; i++) {
-                const u = (i / Npts) * C;
-                const theta = (i / Npts) * 2 * Math.PI;
-                const yBot = (seg.d1 / 2) * Math.tan(b1) * (1 - Math.cos(theta));
-                const yTop = L + (seg.d1 / 2) * Math.tan(b1) + (seg.d2 / 2) * Math.tan(b2) * Math.cos(theta);
-                botPts.push(`${u.toFixed(2)},${yBot.toFixed(2)}`);
-                topPts.unshift(`${u.toFixed(2)},${yTop.toFixed(2)}`);
+                const u = i / Npts;
+                const x = xOff + u * circAvg;
+                const theta = u * 2 * Math.PI;
+
+                const yBot = yOff - ((seg.d1 / 2) * Math.tan(b1) * (1 - Math.cos(theta)));
+                const yTop = yBot - (L + (seg.d2 / 2) * Math.tan(b2) * Math.cos(theta));
+
+                topPts.push(`${x.toFixed(2)},${yTop.toFixed(2)}`);
+                botPts.push(`${x.toFixed(2)},${yBot.toFixed(2)}`);
             }
 
-            const pathD = `M ${botPts.join(' L ')} L ${topPts.join(' L ')} Z`;
-            const maxH = L + seg.d1 * Math.tan(b1) + seg.d2 * Math.tan(b2);
+            const pathD = `M ${botPts.join(' L ')} L ${topPts.reverse().join(' L ')} Z`;
 
             svgHtml = `
-                <div class="unfold-item-title">${seg.name} (周長: ${C.toFixed(1)}mm | 高: ${L.toFixed(1)}mm)</div>
-                <svg width="${C + 40}mm" height="${maxH + 30}mm" viewBox="-20 -15 ${C + 40} ${maxH + 30}">
-                    <!-- 100mm 比例尺 -->
-                    <line x1="0" y1="-8" x2="100" y2="-8" stroke="${strokeColor}" stroke-width="2"/>
-                    <text x="0" y="-12" fill="var(--text-main)" font-size="10">100mm 1:1 列印校正尺</text>
+                <div class="unfold-item-title">${seg.name} (展開周長: ${circAvg.toFixed(1)}mm | 中心長: ${L.toFixed(1)}mm)</div>
+                <svg width="${viewW}mm" height="${viewH}mm" viewBox="0 0 ${viewW} ${viewH}">
+                    <line x1="${xOff}" y1="${yOff + 15}" x2="${xOff + 100}" y2="${yOff + 15}" stroke="${strokeColor}" stroke-width="2"/>
+                    <text x="${xOff}" y="${yOff + 26}" fill="var(--text-main)" font-size="10">100mm 實體校正尺</text>
                     <path d="${pathD}" stroke="${strokeColor}" stroke-width="1.5" fill="rgba(56, 189, 248, 0.1)"/>
-                    <text x="5" y="${L/2}" fill="var(--text-sub)" font-size="10">展開周長 ${C.toFixed(1)}mm</text>
                 </svg>
             `;
         }
-        // 2. 圓錐台展開 (擴散錐 / 反射錐)
+        // 2. 圓錐台展開 (擴散錐 / 反射錐 - 圓錐扇形)
         else if (Math.abs(seg.d1 - seg.d2) > 0.5) {
-            const r1 = seg.d1 / 2, r2 = seg.d2 / 2;
-            const rMax = Math.max(r1, r2), rMin = Math.min(r1, r2);
+            const rStart = seg.d1 / 2, rEnd = seg.d2 / 2;
+            const rMin = Math.min(rStart, rEnd);
+            const rMax = Math.max(rStart, rEnd);
             const L = seg.l;
+
             const S = Math.sqrt(L * L + Math.pow(rMax - rMin, 2));
             const Rout = (rMax * S) / (rMax - rMin);
             const Rin = Rout - S;
-            const phiDeg = 360 * (rMax / Rout);
-            const phiRad = phiDeg * Math.PI / 180;
+            const phi = 2 * Math.PI * (rMax / Rout);
+            const phiDeg = phi * 180 / Math.PI;
 
-            const aStart = -phiRad / 2, aEnd = phiRad / 2;
-            const x1 = Rout * Math.sin(aStart), y1 = -Rout * Math.cos(aStart);
-            const x2 = Rout * Math.sin(aEnd),   y2 = -Rout * Math.cos(aEnd);
-            const x3 = Rin * Math.sin(aEnd),    y3 = -Rin * Math.cos(aEnd);
-            const x4 = Rin * Math.sin(aStart),  y4 = -Rin * Math.cos(aStart);
+            const halfPhi = phi / 2;
+            const spanW = 2 * Rout * Math.sin(halfPhi);
+            const minY = Rin * Math.cos(halfPhi);
+            const maxY = Rout;
+            const spanH = maxY - minY;
 
-            const largeArc = phiDeg > 180 ? 1 : 0;
-            const pathD = `M ${x1},${y1} A ${Rout} ${Rout} 0 ${largeArc} 1 ${x2},${y2} L ${x3},${y3} A ${Rin} ${Rin} 0 ${largeArc} 0 ${x4},${y4} Z`;
+            const pad = 40;
+            const svgW = Math.max(spanW + pad, 180);
+            const svgH = Math.max(spanH + pad, 120);
 
-            const minX = -Rout * Math.sin(phiRad / 2) - 10;
-            const maxX = Rout * Math.sin(phiRad / 2) + 10;
-            const minY = -Rout - 20;
-            const maxY = -Rin * Math.cos(phiRad / 2) + 10;
-            const viewW = maxX - minX;
-            const viewH = maxY - minY;
+            const Cx = svgW / 2;
+            const Cy = (pad / 2) - minY;
+
+            const numPts = 48;
+            let outPts = [], inPts = [];
+            for (let i = 0; i <= numPts; i++) {
+                const a = -halfPhi + (i / numPts) * phi;
+                outPts.push(`${(Cx + Rout * Math.sin(a)).toFixed(2)},${(Cy + Rout * Math.cos(a)).toFixed(2)}`);
+                inPts.push(`${(Cx + Rin * Math.sin(a)).toFixed(2)},${(Cy + Rin * Math.cos(a)).toFixed(2)}`);
+            }
+
+            const largeArc = phi > Math.PI ? 1 : 0;
+            const pathD = `M ${outPts[0]} A ${Rout.toFixed(2)} ${Rout.toFixed(2)} 0 ${largeArc} 1 ${outPts[outPts.length-1]} L ${inPts[inPts.length-1]} A ${Rin.toFixed(2)} ${Rin.toFixed(2)} 0 ${largeArc} 0 ${inPts[0]} Z`;
 
             svgHtml = `
-                <div class="unfold-item-title">${seg.name} (圓錐張角: ${phiDeg.toFixed(1)}° | Rout: ${Rout.toFixed(1)}mm)</div>
-                <svg width="${viewW}mm" height="${viewH}mm" viewBox="${minX} ${minY} ${viewW} ${viewH}">
-                    <line x1="${minX+10}" y1="${minY+10}" x2="${minX+110}" y2="${minY+10}" stroke="${strokeColor}" stroke-width="2"/>
-                    <text x="${minX+10}" y="${minY+5}" fill="var(--text-main)" font-size="10">100mm 1:1 校正尺</text>
+                <div class="unfold-item-title">${seg.name} (${seg.info})</div>
+                <svg width="${svgW}mm" height="${svgH}mm" viewBox="0 0 ${svgW} ${svgH}">
+                    <line x1="15" y1="20" x2="115" y2="20" stroke="${strokeColor}" stroke-width="2"/>
+                    <text x="15" y="14" fill="var(--text-main)" font-size="10">100mm 實體校正尺</text>
                     <path d="${pathD}" stroke="${strokeColor}" stroke-width="1.5" fill="rgba(56, 189, 248, 0.1)"/>
                 </svg>
             `;
@@ -660,12 +728,16 @@ function renderUnfoldSVGs() {
         else {
             const C = Math.PI * seg.d1;
             const L = seg.l;
+            const padW = 30, padH = 30;
+            const svgW = C + padW;
+            const svgH = L + padH + 10;
+
             svgHtml = `
-                <div class="unfold-item-title">${seg.name} (直筒矩形: ${C.toFixed(1)}mm x ${L.toFixed(1)}mm)</div>
-                <svg width="${C + 30}mm" height="${L + 30}mm" viewBox="-10 -15 ${C + 30} ${L + 30}">
-                    <line x1="0" y1="-8" x2="100" y2="-8" stroke="${strokeColor}" stroke-width="2"/>
-                    <text x="0" y="-12" fill="var(--text-main)" font-size="10">100mm 1:1 校正尺</text>
-                    <rect x="0" y="0" width="${C}" height="${L}" stroke="${strokeColor}" stroke-width="1.5" fill="rgba(56, 189, 248, 0.1)"/>
+                <div class="unfold-item-title">${seg.name} (矩形展開: ${C.toFixed(1)}mm x ${L.toFixed(1)}mm)</div>
+                <svg width="${svgW}mm" height="${svgH}mm" viewBox="0 0 ${svgW} ${svgH}">
+                    <line x1="15" y1="15" x2="115" y2="15" stroke="${strokeColor}" stroke-width="2"/>
+                    <text x="15" y="10" fill="var(--text-main)" font-size="10">100mm 實體校正尺</text>
+                    <rect x="15" y="25" width="${C}" height="${L}" stroke="${strokeColor}" stroke-width="1.5" fill="rgba(56, 189, 248, 0.1)"/>
                 </svg>
             `;
         }
@@ -678,8 +750,6 @@ function renderUnfoldSVGs() {
 function renderTable() {
     const tbody = document.getElementById('flatTableBody');
     tbody.innerHTML = currentSegments.map(s => {
-        const dAvg = (s.d1 + s.d2) / 2;
-        const C = (Math.PI * dAvg).toFixed(1);
         return `
             <tr>
                 <td><b>${s.name}</b></td>
@@ -687,7 +757,7 @@ function renderTable() {
                 <td>Ø${s.d1.toFixed(1)}</td>
                 <td>Ø${s.d2.toFixed(1)}</td>
                 <td>${s.beta1.toFixed(1)}° / ${s.beta2.toFixed(1)}°</td>
-                <td>${C} mm</td>
+                <td>${s.info}</td>
             </tr>
         `;
     }).join('');
