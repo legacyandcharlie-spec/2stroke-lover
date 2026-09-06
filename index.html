@@ -1,898 +1,687 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2T 競技排氣管設計系統 (含頭段蝦殼彎展開)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2T 競技排氣管設計與氣波模擬系統</title>
+    <!-- 引入 Three.js, OrbitControls, Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --bg: #0b0f19;
             --panel: #151d30;
+            --panel-card: #090d16;
             --accent: #38bdf8;
             --accent-hover: #0284c7;
             --text-main: #f1f5f9;
             --text-sub: #94a3b8;
             --border: #24314d;
+            --input-bg: #090d16;
+            --shadow: rgba(0, 0, 0, 0.4);
         }
-        * { box-sizing: border-box; }
+
+        [data-theme="light"] {
+            --bg: #f8fafc;
+            --panel: #ffffff;
+            --panel-card: #f1f5f9;
+            --accent: #0284c7;
+            --accent-hover: #0369a1;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --border: #cbd5e1;
+            --input-bg: #ffffff;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        * { box-sizing: border-box; touch-action: manipulation; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg);
             color: var(--text-main);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
+            margin: 0; padding: 12px;
+            transition: background-color 0.3s, color 0.3s;
         }
+
         .app-container {
-            width: 100%;
-            max-width: 1240px;
+            max-width: 1400px;
+            margin: 0 auto;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
         }
+
         header {
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 12px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 12px 18px;
+            border-radius: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 4px 6px var(--shadow);
         }
-        h1 { font-size: 1.3rem; color: var(--accent); margin: 0; }
+        h1 { font-size: 1.15rem; color: var(--accent); margin: 0; }
+
+        .header-actions { display: flex; gap: 8px; align-items: center; }
+
         .grid-layout {
             display: grid;
-            grid-template-columns: 330px 1fr;
-            gap: 20px;
+            grid-template-columns: 360px 1fr;
+            gap: 16px;
         }
-        @media (max-width: 900px) {
+        @media (max-width: 980px) {
             .grid-layout { grid-template-columns: 1fr; }
         }
+
         .card {
             background-color: var(--panel);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 20px;
+            padding: 16px;
+            box-shadow: 0 4px 6px var(--shadow);
         }
+
         .section-title {
-            margin: 0 0 12px 0;
-            font-size: 0.95rem;
+            margin: 0 0 10px 0;
+            font-size: 0.92rem;
+            font-weight: bold;
             color: var(--accent);
-            border-bottom: 1px solid rgba(56, 189, 248, 0.2);
-            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .input-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; }
+
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
         .input-field { display: flex; flex-direction: column; gap: 4px; }
-        label { font-size: 0.85rem; color: var(--text-sub); }
+        label { font-size: 0.8rem; color: var(--text-sub); }
+
+        .slider-row { display: flex; align-items: center; gap: 8px; }
+        input[type="range"] { flex-grow: 1; accent-color: var(--accent); height: 20px; }
+        .num-input { width: 75px; text-align: right; }
+
         input, select {
-            background: #090d16;
+            background: var(--input-bg);
             border: 1px solid var(--border);
             color: var(--text-main);
-            padding: 8px 10px;
+            padding: 8px;
             border-radius: 6px;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
+            min-height: 38px;
             outline: none;
         }
-        input:focus, select:focus { border-color: var(--accent); }
-        .unit-input { display: flex; align-items: center; gap: 8px; }
-        .unit-input input { flex-grow: 1; }
-        .unit { font-size: 0.85rem; color: var(--text-sub); width: 45px; }
-        
-        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+
         .btn {
             background: var(--accent);
-            color: #000;
+            color: #fff;
             font-weight: bold;
             border: none;
-            padding: 9px 14px;
+            padding: 8px 12px;
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 0.83rem;
+            font-size: 0.82rem;
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            justify-content: center;
+            gap: 6px;
+            min-height: 38px;
         }
-        .btn:hover { background: var(--accent-hover); color: #fff; }
+        .btn:hover { background: var(--accent-hover); }
         .btn-outline {
             background: transparent;
             border: 1px solid var(--accent);
             color: var(--accent);
         }
-        .btn-outline:hover { background: var(--accent); color: #000; }
+        .btn-outline:hover { background: var(--accent); color: #fff; }
 
-        .svg-container {
+        .container-3d-wrapper {
             position: relative;
-            background: #090d16;
+            background: var(--panel-card);
             border-radius: 8px;
             border: 1px solid var(--border);
+            height: 420px;
             overflow: hidden;
-            cursor: pointer;
         }
-        .svg-container::after {
-            content: "🔍 點擊放大查看細節";
+        #container3D { width: 100%; height: 100%; }
+
+        .toolbar-3d {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(15, 23, 42, 0.8);
-            color: var(--accent);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            pointer-events: none;
-            border: 1px solid var(--border);
+            top: 8px; right: 8px;
+            display: flex; gap: 6px; flex-wrap: wrap; z-index: 10;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px; border-radius: 6px; backdrop-filter: blur(4px);
         }
-        svg {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-        .segment { fill: #1e293b; stroke: var(--accent); stroke-width: 1.5; }
-        .flat-pattern { fill: rgba(56, 189, 248, 0.12); stroke: var(--accent); stroke-width: 1.5; }
-        .ruler-line { stroke: #f8fafc; stroke-width: 2; }
-        .ruler-text { fill: #f8fafc; font-size: 13px; font-weight: bold; }
 
-        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 10px; }
-        th, td { padding: 7px 9px; text-align: left; border-bottom: 1px solid var(--border); }
-        th { color: var(--text-sub); background: rgba(0,0,0,0.2); }
-
-        /* Modal 彈窗樣式 */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.85);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            backdrop-filter: blur(5px);
-        }
-        .modal-content {
-            background: var(--panel);
+        .chart-container {
+            position: relative;
+            background: var(--panel-card);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            width: 90vw;
-            max-width: 1100px;
-            max-height: 90vh;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 10px;
+            height: 260px;
         }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .modal-title { font-weight: bold; color: var(--accent); font-size: 1.1rem; }
-        .modal-close {
+
+        .tab-bar { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+        .tab-btn {
+            padding: 8px 14px;
             background: transparent;
             border: none;
             color: var(--text-sub);
-            font-size: 1.5rem;
+            font-weight: bold;
+            font-size: 0.85rem;
             cursor: pointer;
+            border-bottom: 2px solid transparent;
         }
-        .modal-close:hover { color: #fff; }
-        .modal-body {
-            flex-grow: 1;
-            background: #090d16;
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 8px; }
+        th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-sub); background: rgba(0,0,0,0.1); }
+
+        .svg-container {
+            background: var(--panel-card);
             border-radius: 8px;
-            padding: 10px;
-            overflow: auto;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            border: 1px solid var(--border);
+            overflow: x-auto; padding: 10px;
         }
-
-        /* 1:1 列印區域 */
-        #printArea { display: none; }
-
-        @media print {
-            @page {
-                size: auto; /* 自動搭配最適紙張尺寸 (A4/A3/直向/橫向) */
-                margin: 10mm;
-            }
-            body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
-            .no-print, header, .btn-group, .grid-layout, .modal-overlay { display: none !important; }
-            #printArea { display: block !important; width: 100% !important; }
-
-            .print-page-title {
-                font-size: 15pt;
-                font-weight: bold;
-                text-align: center;
-                margin-bottom: 5mm;
-                border-bottom: 2px solid #000;
-                padding-bottom: 3mm;
-            }
-            .print-instructions {
-                font-size: 9.5pt;
-                margin-bottom: 8mm;
-                background: #f1f5f9;
-                padding: 3mm 5mm;
-                border-radius: 4px;
-                border: 1px solid #cbd5e1;
-            }
-            .print-card {
-                page-break-after: always;
-                break-after: page;
-                page-break-inside: avoid;
-                break-inside: avoid;
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important; /* 置中列印，防止偏左 */
-                justify-content: center !important;
-                margin: 0 auto 10mm auto !important;
-                padding: 5mm 0;
-            }
-            .print-card:last-child {
-                page-break-after: auto;
-                break-after: auto;
-            }
-            .print-card h4 { margin: 0 0 4mm 0; font-size: 11pt; color: #000; text-align: center; }
-            .print-svg {
-                background: white !important;
-                overflow: visible !important;
-                display: block !important;
-                margin: 0 auto !important;
-            }
-            .print-svg .flat-pattern { stroke: #000000 !important; stroke-width: 1.2px !important; fill: none !important; }
-            .print-svg .ruler-line { stroke: #000 !important; stroke-width: 1.5px !important; }
-            .print-svg .ruler-text { fill: #000 !important; font-size: 11px !important; font-weight: bold !important; }
-        }
+        svg { width: 100%; height: auto; display: block; }
+        .flat-pattern { fill: rgba(56, 189, 248, 0.15); stroke: var(--accent); stroke-width: 1.5; }
+        .ruler-line { stroke: var(--text-main); stroke-width: 1.5; }
+        .ruler-text { fill: var(--text-main); font-size: 11px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <header class="no-print">
-        <h1>2T 競技排氣管設計系統 (含頭段蝦殼彎展開)</h1>
+    <header>
+        <h1>2T 競技排氣管設計與氣波模擬系統</h1>
+        <div class="header-actions">
+            <button class="btn btn-outline" onclick="toggleTheme()" id="themeBtn">🌙 深色模式</button>
+            <button class="btn" onclick="exportDXF()">💾 匯出 CAD (.DXF)</button>
+        </div>
     </header>
 
     <div class="grid-layout">
-        <!-- 控制面板 -->
-        <div class="card no-print">
-            <div class="section-title">引擎設定參數</div>
+        <!-- 左側控制面板 -->
+        <div class="card">
+            <div class="section-title">引擎與氣波參數</div>
             <div class="input-group">
                 <div class="input-field">
-                    <label>總排氣量 (Displacement)</label>
-                    <div class="unit-input">
-                        <input type="number" id="ccInput" value="136" min="50" max="1000">
-                        <span class="unit">c.c.</span>
+                    <label>單缸排氣量 (Displacement)</label>
+                    <div class="slider-row">
+                        <input type="range" id="ccSlider" min="50" max="500" value="136" oninput="syncVal('cc', this.value)">
+                        <input type="number" id="ccInput" class="num-input" value="136" onchange="syncVal('cc', this.value)">
+                        <span style="font-size:0.8rem;">cc</span>
                     </div>
                 </div>
 
                 <div class="input-field">
-                    <label>汽缸數量</label>
-                    <select id="cylInput">
-                        <option value="1" selected>單缸 (1 缸)</option>
-                        <option value="2">雙缸 (2 缸)</option>
-                    </select>
-                </div>
-
-                <div class="input-field">
-                    <label>排氣持續角度 (Exhaust Duration)</label>
-                    <div class="unit-input">
-                        <input type="number" id="durationInput" value="186" min="150" max="210">
-                        <span class="unit">度 (°)</span>
+                    <label>排氣持續角 (Exhaust Duration)</label>
+                    <div class="slider-row">
+                        <input type="range" id="durSlider" min="150" max="210" value="186" oninput="syncVal('dur', this.value)">
+                        <input type="number" id="durInput" class="num-input" value="186" onchange="syncVal('dur', this.value)">
+                        <span style="font-size:0.8rem;">°</span>
                     </div>
                 </div>
 
                 <div class="input-field">
                     <label>目標峰值轉速 (Target RPM)</label>
-                    <div class="unit-input">
-                        <input type="number" id="rpmInput" value="10000" min="4000" max="15000" step="100">
-                        <span class="unit">RPM</span>
+                    <div class="slider-row">
+                        <input type="range" id="rpmSlider" min="5000" max="15000" step="100" value="10000" oninput="syncVal('rpm', this.value)">
+                        <input type="number" id="rpmInput" class="num-input" value="10000" onchange="syncVal('rpm', this.value)">
                     </div>
                 </div>
 
                 <div class="input-field">
-                    <label>排氣溫度 (EGT)</label>
-                    <div class="unit-input">
-                        <input type="number" id="egtInput" value="600" min="400" max="750">
-                        <span class="unit">°C</span>
+                    <label>排氣溫度 EGT (°C)</label>
+                    <div class="slider-row">
+                        <input type="range" id="egtSlider" min="400" max="750" value="620" oninput="syncVal('egt', this.value)">
+                        <input type="number" id="egtInput" class="num-input" value="620" onchange="syncVal('egt', this.value)">
                     </div>
                 </div>
             </div>
 
-            <div class="section-title">頭段彎曲設定 (蝦殼彎 Pie Cuts)</div>
+            <div class="section-title">頭段 3D 蝦殼彎曲姿態</div>
             <div class="input-group">
                 <div class="input-field">
-                    <label>頭段總彎曲角度 (Bend Angle)</label>
-                    <div class="unit-input">
-                        <input type="number" id="bendAngleInput" value="45" min="0" max="90" step="5">
-                        <span class="unit">度 (°)</span>
+                    <label>頭段彎曲總角度 (Bend Angle)</label>
+                    <div class="slider-row">
+                        <input type="range" id="bendSlider" min="0" max="90" step="5" value="60" oninput="syncVal('bend', this.value)">
+                        <input type="number" id="bendInput" class="num-input" value="60" onchange="syncVal('bend', this.value)">
+                        <span style="font-size:0.8rem;">°</span>
                     </div>
                 </div>
 
                 <div class="input-field">
-                    <label>頭段蝦殼分節數 (Cuts)</label>
-                    <div class="unit-input">
-                        <input type="number" id="bendCutsInput" value="4" min="1" max="10" step="1">
-                        <span class="unit">節</span>
+                    <label>蝦殼彎曲半徑 R (Radius)</label>
+                    <div class="slider-row">
+                        <input type="range" id="radSlider" min="80" max="300" step="10" value="140" oninput="syncVal('rad', this.value)">
+                        <input type="number" id="radInput" class="num-input" value="140" onchange="syncVal('rad', this.value)">
+                        <span style="font-size:0.8rem;">mm</span>
+                    </div>
+                </div>
+
+                <div class="input-field">
+                    <label>蝦殼分節數 (Pie Cuts)</label>
+                    <input type="number" id="cutsInput" value="5" min="1" max="12" onchange="recalc()">
+                </div>
+            </div>
+
+            <div class="section-title">尾段消音器 (Silencer)</div>
+            <div class="input-group">
+                <div class="input-field">
+                    <label>消音器長度 (Length)</label>
+                    <div class="slider-row">
+                        <input type="range" id="silLSlider" min="100" max="400" value="220" oninput="syncVal('silL', this.value)">
+                        <input type="number" id="silLInput" class="num-input" value="220" onchange="syncVal('silL', this.value)">
+                        <span style="font-size:0.8rem;">mm</span>
+                    </div>
+                </div>
+                <div class="input-field">
+                    <label>消音內網口徑 (Core ID)</label>
+                    <input type="number" id="silDInput" value="22" min="14" max="35" onchange="recalc()">
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側展示面板 -->
+        <div class="card" style="display:flex; flex-direction:column; gap:12px;">
+            <div id="summaryBox" style="font-size:0.85rem; line-height:1.5; background:var(--panel-card); padding:10px; border-radius:6px; border:1px solid var(--border);"></div>
+
+            <div class="tab-bar">
+                <button class="tab-btn active" onclick="switchTab('tab3D')">3D 姿態與蝦殼</button>
+                <button class="tab-btn" onclick="switchTab('tabSim')">馬力波形與氣波模擬</button>
+                <button class="tab-btn" onclick="switchTab('tabFlat')">2D 展開圖與數據</button>
+            </div>
+
+            <!-- Tab 1: 3D 視圖 -->
+            <div id="tab3D" class="tab-content active">
+                <div class="container-3d-wrapper">
+                    <div class="toolbar-3d">
+                        <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem;" onclick="toggleAutoRotate()">🔄 旋轉</button>
+                        <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem;" onclick="toggleWireframe()">📐 線框</button>
+                        <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem;" onclick="resetCamera()">🎯 置中</button>
+                    </div>
+                    <div id="container3D"></div>
+                </div>
+            </div>
+
+            <!-- Tab 2: 模擬圖表 -->
+            <div id="tabSim" class="tab-content">
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:bold; margin-bottom:4px; color:var(--accent);">預估馬力與扭力輸出曲線 (HP & Torque vs RPM)</div>
+                        <div class="chart-container"><canvas id="hpChart"></canvas></div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:bold; margin-bottom:4px; color:var(--accent);">排氣門端壓力波形脈衝 (Exhaust Pressure Wave Pulse - kPa)</div>
+                        <div class="chart-container"><canvas id="waveChart"></canvas></div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- 輸出面板 -->
-        <div class="card" style="display:flex; flex-direction:column; gap:15px;">
-            <div class="btn-group no-print">
-                <button class="btn" onclick="exportDXF()">💾 匯出 CAD (.DXF - mm)</button>
-                <button class="btn btn-outline" onclick="copyAsImage()">📋 複製展開圖圖片</button>
-                <button class="btn btn-outline" onclick="downloadPNG()">🖼️ 下載 PNG 圖片</button>
-                <button class="btn btn-outline" onclick="print1to1()">🖨️ 列印 1:1 實體展開圖 (PDF)</button>
-            </div>
-
-            <div id="summaryBox" class="no-print" style="font-size:0.88rem; line-height:1.5; background:#090d16; padding:10px; border-radius:6px; border:1px solid var(--border);"></div>
-
-            <div>
-                <h4 class="no-print" style="margin:0 0 6px 0; color:var(--accent);">1. 排氣管 2D/3D 立體姿態總成 (單位: mm)</h4>
-                <div class="svg-container no-print" onclick="openModal()">
-                    <svg id="pipeSvg"></svg>
-                </div>
-            </div>
-
-            <div>
-                <h4 class="no-print" style="margin:0 0 6px 0; color:var(--accent);">2. 2D 蝦殼與錐管鈑金展開圖 (Flat Pattern - 單位: mm)</h4>
-                <div style="background:#090d16; border-radius:8px; border:1px solid var(--border); padding:10px; overflow-x:auto;">
+            <!-- Tab 3: 2D 展開圖與表格 -->
+            <div id="tabFlat" class="tab-content">
+                <div class="svg-container">
                     <svg id="flatSvg"></svg>
                 </div>
-            </div>
-
-            <div class="no-print">
-                <h4 style="margin:10px 0 5px 0;">2D 鈑金展開幾何數據對照表 (單位: mm)</h4>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>區段</th>
-                            <th>中心長度 (L)</th>
-                            <th>小端內徑 (D1)</th>
-                            <th>大端內徑 (D2)</th>
-                            <th>切角 &beta;1 / &beta;2</th>
-                            <th>外弧 (Rout)</th>
-                            <th>內弧 (Rin)</th>
-                            <th>展開角度</th>
-                        </tr>
-                    </thead>
-                    <tbody id="flatTableBody"></tbody>
-                </table>
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>區段</th>
+                                <th>中心長 L</th>
+                                <th>小端 D1</th>
+                                <th>大端 D2</th>
+                                <th>切角 &beta;1/&beta;2</th>
+                                <th>外弧 Rout</th>
+                                <th>內弧 Rin</th>
+                            </tr>
+                        </thead>
+                        <tbody id="flatTableBody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
-</div>
-
-<!-- 全螢幕放大檢視 Modal -->
-<div id="pipeModal" class="modal-overlay" onclick="closeModal(event)">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <div class="modal-header">
-            <div class="modal-title">排氣管 2D/3D 立體姿態總成 (全解析度放大視圖)</div>
-            <button class="modal-close" onclick="closeModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <svg id="modalPipeSvg" style="width:100%; max-height:75vh;"></svg>
-        </div>
-    </div>
-</div>
-
-<!-- 1:1 列印專用隱藏區域 -->
-<div id="printArea">
-    <div class="print-page-title">2T 膨脹管 1:1 實體鈑金展開圖紙 (單位: mm)</div>
-    <div class="print-instructions">
-        ⚠️ <b>1:1 精準列印設定指示：</b><br>
-        1. <b>紙張尺寸與方向</b>：可選擇「<b>自動</b>」或針對大尺寸構件選擇 <b>A4 / A3 / 橫向 (Landscape)</b> 紙張。<br>
-        2. <b>比例設定</b>：請務必將印表機比例設定為「<b>實際大小</b>」或「<b>100%</b>」（請勿勾選「適合頁面」或「縮放」）。<br>
-        3. <b>尺寸驗證</b>：列印完成後，請務必使用直尺測量每個圖形上方的 <b>100 mm (10 cm) 校正基準線</b>。
-    </div>
-    <div id="printCardsContainer"></div>
 </div>
 
 <script>
-let currentSegments = [];
-let flatPatterns = [];
+let scene3D, camera3D, renderer3D, controls3D, pipeGroup3D;
+let isAutoRotate = true, isWireframe = false;
+let hpChartInst = null, waveChartInst = null;
+let currentSegments = [], flatPatterns = [];
 
-function calculatePipe() {
-    const totalCC = parseFloat(document.getElementById('ccInput').value) || 136;
-    const cylinders = parseInt(document.getElementById('cylInput').value) || 1;
-    const duration = parseFloat(document.getElementById('durationInput').value) || 186;
-    const rpm = parseFloat(document.getElementById('rpmInput').value) || 10000;
-    const egt = parseFloat(document.getElementById('egtInput').value) || 600;
+function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    document.getElementById('themeBtn').innerText = next === 'dark' ? '🌙 深色模式' : '☀️ 淺色模式';
+    if(hpChartInst) updateChartColors();
+}
 
-    const totalBendAngle = parseFloat(document.getElementById('bendAngleInput').value) || 0;
-    const bendCuts = Math.max(1, parseInt(document.getElementById('bendCutsInput').value) || 1);
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+    if(tabId === 'tabSim') {
+        setTimeout(() => { hpChartInst?.resize(); waveChartInst?.resize(); }, 50);
+    }
+}
 
-    const singleCC = totalCC / cylinders;
+function syncVal(key, val) {
+    document.getElementById(key + 'Slider').value = val;
+    document.getElementById(key + 'Input').value = val;
+    recalc();
+}
+
+function init3D() {
+    const container = document.getElementById('container3D');
+    scene3D = new THREE.Scene();
+    scene3D.background = new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--panel-card').trim());
+
+    camera3D = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 1, 5000);
+    camera3D.position.set(200, 250, 450);
+
+    renderer3D = new THREE.WebGLRenderer({ antialias: true });
+    renderer3D.setSize(container.clientWidth, container.clientHeight);
+    renderer3D.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer3D.domElement);
+
+    controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+    controls3D.enableDamping = true;
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene3D.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(200, 400, 300);
+    scene3D.add(dirLight);
+
+    pipeGroup3D = new THREE.Group();
+    scene3D.add(pipeGroup3D);
+
+    animate3D();
+}
+
+function animate3D() {
+    requestAnimationFrame(animate3D);
+    if(controls3D) controls3D.update();
+    if(isAutoRotate && pipeGroup3D) pipeGroup3D.rotation.y += 0.005;
+    if(renderer3D && scene3D && camera3D) renderer3D.render(scene3D, camera3D);
+}
+
+function toggleAutoRotate() { isAutoRotate = !isAutoRotate; }
+function toggleWireframe() { isWireframe = !isWireframe; render3DPipe(); }
+function resetCamera() { if(pipeGroup3D) pipeGroup3D.rotation.set(0,0,0); }
+
+// 計算 3D 蝦殼管彎曲幾何與中心線座標
+function recalc() {
+    const cc = parseFloat(document.getElementById('ccInput').value);
+    const dur = parseFloat(document.getElementById('durInput').value);
+    const rpm = parseFloat(document.getElementById('rpmInput').value);
+    const egt = parseFloat(document.getElementById('egtInput').value);
+    const bendAngle = parseFloat(document.getElementById('bendInput').value);
+    const bendRadius = parseFloat(document.getElementById('radInput').value);
+    const bendCuts = parseInt(document.getElementById('cutsInput').value);
+    const silL = parseFloat(document.getElementById('silLInput').value);
+    const silD = parseFloat(document.getElementById('silDInput').value);
+
     const soundSpeed = 20.05 * Math.sqrt(273.15 + egt); // m/s
-    const tunedLength = (duration * soundSpeed * 1000) / (12 * rpm); // mm
+    const tunedLength = (dur * soundSpeed * 1000) / (12 * rpm); // mm
 
-    const headerD = Math.sqrt(singleCC / 136) * 35; // mm
-    const bellyD = headerD * 2.75; // mm
-    const stingerD = headerD * 0.60; // mm
+    const headerD = Math.sqrt(cc / 136) * 35;
+    const bellyD = headerD * 2.7;
+    const stingerD = headerD * 0.6;
 
-    const totalHeaderL = tunedLength * 0.287;
-    const diff1L = tunedLength * 0.191;
-    const diff2L = tunedLength * 0.191;
-    const bellyL = tunedLength * 0.164;
-    const baffleL = tunedLength * 0.219;
-    const stingerL = stingerD * 10.5;
-
-    const diff1D2 = headerD + (bellyD - headerD) * 0.40;
+    const totalHeaderL = tunedLength * 0.28;
+    const diffL = tunedLength * 0.38;
+    const bellyL = tunedLength * 0.16;
+    const baffleL = tunedLength * 0.18;
 
     currentSegments = [];
 
-    // 頭段蝦殼彎分節 (Pie Cuts)
-    if (totalBendAngle > 0 && bendCuts > 1) {
-        const subL = totalHeaderL / bendCuts;
-        const startD = headerD;
-        const endD = headerD * 1.04;
-        const miterAngle = (totalBendAngle / bendCuts) / 2;
+    // 頭段蝦殼彎曲演算
+    if (bendAngle > 0 && bendCuts > 0) {
+        const anglePerCut = (bendAngle * Math.PI / 180) / bendCuts;
+        const miterAngleDeg = (bendAngle / bendCuts) / 2;
+        const subL = 2 * bendRadius * Math.tan(anglePerCut / 2);
 
         for (let i = 0; i < bendCuts; i++) {
-            const d1 = startD + (endD - startD) * (i / bendCuts);
-            const d2 = startD + (endD - startD) * ((i + 1) / bendCuts);
-            
-            const beta1 = (i === 0) ? 0 : miterAngle;
-            const beta2 = (i === bendCuts - 1) ? 0 : miterAngle;
-
+            const d1 = headerD + (headerD * 0.05 - headerD) * (i / bendCuts);
+            const d2 = headerD + (headerD * 0.05 - headerD) * ((i + 1) / bendCuts);
             currentSegments.push({
-                name: `1-${i+1}. 頭段-蝦殼節 ${i+1}/${bendCuts}`,
+                name: `1-${i+1}. 蝦殼彎節 ${i+1}`,
                 l: subL, d1: d1, d2: d2,
-                beta1: beta1, beta2: beta2,
-                turnAngle: totalBendAngle / bendCuts
+                beta1: (i === 0) ? 0 : miterAngleDeg,
+                beta2: (i === bendCuts - 1) ? 0 : miterAngleDeg,
+                turnAngle: bendAngle / bendCuts,
+                isBend: true
             });
         }
     } else {
-        currentSegments.push({
-            name: "1. 頭段 (Header)",
-            l: totalHeaderL, d1: headerD, d2: headerD * 1.04,
-            beta1: 0, beta2: 0, turnAngle: 0
-        });
+        currentSegments.push({ name: "1. 直線頭段", l: totalHeaderL, d1: headerD, d2: headerD*1.05, beta1:0, beta2:0, turnAngle:0 });
     }
 
-    // 錐管區段 (單位: mm)
     currentSegments.push(
-        { name: "2a. 一級擴散錐", l: diff1L, d1: headerD * 1.04, d2: diff1D2, beta1: 0, beta2: 0, turnAngle: 0 },
-        { name: "2b. 二級擴散錐", l: diff2L, d1: diff1D2, d2: bellyD, beta1: 0, beta2: 0, turnAngle: 0 },
-        { name: "3. 中段膨脹室", l: bellyL, d1: bellyD, d2: bellyD, beta1: 0, beta2: 0, turnAngle: 0 },
-        { name: "4. 反射錐 (Baffle)", l: baffleL, d1: bellyD, d2: stingerD, beta1: 0, beta2: 0, turnAngle: 0 },
-        { name: "5. 尾管 (Stinger)", l: stingerL, d1: stingerD, d2: stingerD, beta1: 0, beta2: 0, turnAngle: 0 }
+        { name: "2. 擴散錐 (Diffuser)", l: diffL, d1: headerD*1.05, d2: bellyD, beta1:0, beta2:0, turnAngle:0 },
+        { name: "3. 膨脹室 (Belly)", l: bellyL, d1: bellyD, d2: bellyD, beta1:0, beta2:0, turnAngle:0 },
+        { name: "4. 反射錐 (Baffle)", l: baffleL, d1: bellyD, d2: stingerD, beta1:0, beta2:0, turnAngle:0 },
+        { name: "5. 尾管 (Stinger)", l: stingerD*10, d1: stingerD, d2: stingerD, beta1:0, beta2:0, turnAngle:0 },
+        { name: "6. 消音器 (Silencer)", l: silL, d1: silD, d2: silD, beta1:0, beta2:0, turnAngle:0, isSilencer: true }
     );
 
-    // 2D 鈑金展開計算 (單位: mm)
-    flatPatterns = currentSegments.map(seg => {
-        const r1 = seg.d1 / 2;
-        const r2 = seg.d2 / 2;
-        const L = seg.l;
-        const beta1Rad = (seg.beta1 * Math.PI) / 180;
-        const beta2Rad = (seg.beta2 * Math.PI) / 180;
-
-        const isStraight = (seg.beta1 === 0 && seg.beta2 === 0);
-        const isCylinder = Math.abs(r1 - r2) < 0.1;
-
-        if (isStraight && isCylinder) {
-            const width = Math.PI * seg.d1;
-            return {
-                name: seg.name, isCylinder: true, isMitered: false,
-                l: L, d1: seg.d1, d2: seg.d2, beta1: 0, beta2: 0,
-                width: width, height: L, Rout: 0, Rin: 0, angle: 0, S: L,
-                bbox: { minX: -width / 2, maxX: width / 2, minY: 0, maxY: L }
-            };
-        }
-
-        const N_PTS = 36;
-        const ptsInner = [];
-        const ptsOuter = [];
-
-        const rMax = Math.max(r1, r2);
-        const rMin = Math.min(r1, r2);
-        const S = isCylinder ? L : Math.sqrt(L * L + (rMax - rMin) * (rMax - rMin));
-        const Rout = isCylinder ? 0 : (rMax * S) / (rMax - rMin);
-        const Rin = isCylinder ? 0 : Rout - S;
-        const thetaDeg = isCylinder ? 0 : 360 * (rMax / Rout);
-        const thetaRad = (thetaDeg * Math.PI) / 180;
-
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-
-        for (let k = 0; k <= N_PTS; k++) {
-            const phi = (k / N_PTS) * 2 * Math.PI;
-
-            const deltaR1 = r1 * Math.tan(beta1Rad) * Math.cos(phi);
-            const deltaR2 = r2 * Math.tan(beta2Rad) * Math.cos(phi);
-
-            let xIn, yIn, xOut, yOut;
-
-            if (isCylinder) {
-                const w = 2 * Math.PI * r1;
-                const x = (k / N_PTS) * w - w / 2;
-                yIn = deltaR1;
-                yOut = L - deltaR2;
-                xIn = x; xOut = x;
-            } else {
-                const angleK = -thetaRad / 2 + (k / N_PTS) * thetaRad;
-                const rInK = Rin + deltaR1;
-                const rOutK = Rout - deltaR2;
-
-                xIn = rInK * Math.sin(angleK);
-                yIn = rInK * Math.cos(angleK) - Rin;
-                xOut = rOutK * Math.sin(angleK);
-                yOut = rOutK * Math.cos(angleK) - Rin;
-            }
-
-            ptsInner.push({ x: xIn, y: yIn });
-            ptsOuter.push({ x: xOut, y: yOut });
-
-            minX = Math.min(minX, xIn, xOut);
-            maxX = Math.max(maxX, xIn, xOut);
-            minY = Math.min(minY, yIn, yOut);
-            maxY = Math.max(maxY, yIn, yOut);
-        }
-
-        return {
-            name: seg.name, isCylinder: isCylinder, isMitered: !isStraight,
-            l: L, d1: seg.d1, d2: seg.d2, beta1: seg.beta1, beta2: seg.beta2,
-            Rout: Rout, Rin: Rin, angle: thetaDeg, S: S,
-            ptsInner: ptsInner, ptsOuter: ptsOuter,
-            bbox: { minX, maxX, minY, maxY }
-        };
-    });
+    // 背壓估算
+    const backpressure = (0.00002 * Math.pow(rpm, 1.3) * (silL / Math.pow(silD, 2))).toFixed(2);
 
     document.getElementById('summaryBox').innerHTML = `
-        • 單缸排氣量: <b>${singleCC.toFixed(1)} c.c.</b> | 聲速: <b>${soundSpeed.toFixed(1)} m/s</b><br>
-        • 總諧振長度 (LT): <b>${tunedLength.toFixed(1)} mm</b> | 頭段總長: <b>${totalHeaderL.toFixed(1)} mm</b> (${totalBendAngle}° / ${bendCuts} 節蝦殼灣)
+        • 聲速: <b>${soundSpeed.toFixed(1)} m/s</b> | 排氣波總諧振長: <b>${tunedLength.toFixed(1)} mm</b><br>
+        • 消音器流阻背壓估算: <b>${backpressure} kPa</b> | 膨脹比: <b>${(bellyD/headerD).toFixed(2)}x</b>
     `;
 
-    renderPipeSVG("pipeSvg");
+    calculateFlatPatterns();
+    render3DPipe();
     renderFlatSVG();
     renderTable();
+    updateCharts(rpm, tunedLength, soundSpeed);
 }
 
-function renderPipeSVG(targetSvgId) {
-    const svg = document.getElementById(targetSvgId);
-    svg.innerHTML = '';
+function render3DPipe() {
+    if(!pipeGroup3D) return;
+    while(pipeGroup3D.children.length > 0) {
+        const obj = pipeGroup3D.children[0];
+        if(obj.geometry) obj.geometry.dispose();
+        pipeGroup3D.remove(obj);
+    }
 
-    let curX = 0;
-    let curY = 0;
-    let curAngleRad = 0;
+    const titaniumColors = [0x38bdf8, 0x8b5cf6, 0xec4899, 0xf59e0b, 0x10b981, 0x0284c7];
+    let pos = new THREE.Vector3(0,0,0);
+    let dir = new THREE.Vector3(1,0,0);
 
-    const pathDataList = [];
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    currentSegments.forEach((seg, idx) => {
+        const r1 = seg.d1 / 2, r2 = seg.d2 / 2;
+        const geom = new THREE.CylinderGeometry(r2, r1, seg.l, 32);
+        geom.translate(0, seg.l/2, 0);
 
-    currentSegments.forEach(seg => {
-        const segL = seg.l;
-        const r1 = seg.d1 / 2;
-        const r2 = seg.d2 / 2;
-        const turnRad = (seg.turnAngle * Math.PI) / 180;
-
-        const nextAngleRad = curAngleRad - turnRad;
-
-        const cosA = Math.cos(curAngleRad);
-        const sinA = Math.sin(curAngleRad);
-        const cosN = Math.cos(nextAngleRad);
-        const sinN = Math.sin(nextAngleRad);
-
-        const p1x = curX - r1 * sinA;
-        const p1y = curY - r1 * cosA;
-        const p4x = curX + r1 * sinA;
-        const p4y = curY + r1 * cosA;
-
-        const nextCenterX = curX + segL * cosA;
-        const nextCenterY = curY - segL * sinA;
-
-        const p2x = nextCenterX - r2 * sinN;
-        const p2y = nextCenterY - r2 * cosN;
-        const p3x = nextCenterX + r2 * sinN;
-        const p3y = nextCenterY + r2 * cosN;
-
-        [p1x, p2x, p3x, p4x].forEach(x => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); });
-        [p1y, p2y, p3y, p4y].forEach(y => { minY = Math.min(minY, y); maxY = Math.max(maxY, y); });
-
-        pathDataList.push({
-            d: `M ${p1x} ${p1y} L ${p2x} ${p2y} L ${p3x} ${p3y} L ${p4x} ${p4y} Z`,
-            title: `${seg.name}\n長度: ${seg.l.toFixed(1)} mm\nD1: Ø${seg.d1.toFixed(1)} mm | D2: Ø${seg.d2.toFixed(1)} mm`
+        const mat = new THREE.MeshStandardMaterial({
+            color: isWireframe ? 0x38bdf8 : (seg.isSilencer ? 0x94a3b8 : titaniumColors[idx % titaniumColors.length]),
+            metalness: 0.8, roughness: 0.2, wireframe: isWireframe
         });
 
-        curX = nextCenterX;
-        curY = nextCenterY;
-        curAngleRad = nextAngleRad;
+        const mesh = new THREE.Mesh(geom, mat);
+        const segGroup = new THREE.Group();
+        segGroup.position.copy(pos);
+
+        // 轉向四元數算快姿態
+        const q = new THREE.Quaternion();
+        q.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+        segGroup.quaternion.copy(q);
+        segGroup.add(mesh);
+        pipeGroup3D.add(segGroup);
+
+        pos.add(dir.clone().multiplyScalar(seg.l));
+
+        if (seg.turnAngle) {
+            const turnRad = (seg.turnAngle * Math.PI / 180);
+            const axis = new THREE.Vector3(0, 0, 1);
+            dir.applyAxisAngle(axis, turnRad);
+        }
     });
 
-    const margin = 30;
-    const width = maxX - minX + (margin * 2);
-    const height = maxY - minY + (margin * 2);
+    const bbox = new THREE.Box3().setFromObject(pipeGroup3D);
+    const center = new THREE.Vector3();
+    bbox.getCenter(center);
+    pipeGroup3D.position.sub(center);
+}
 
-    svg.setAttribute("viewBox", `${minX - margin} ${minY - margin} ${width} ${height}`);
+function calculateFlatPatterns() {
+    flatPatterns = currentSegments.map(seg => {
+        const r1 = seg.d1/2, r2 = seg.d2/2, L = seg.l;
+        const isCylinder = Math.abs(r1 - r2) < 0.1;
+        const rMax = Math.max(r1, r2), rMin = Math.min(r1, r2);
+        const S = isCylinder ? L : Math.sqrt(L*L + Math.pow(rMax - rMin, 2));
+        const Rout = isCylinder ? 0 : (rMax * S) / (rMax - rMin);
+        const Rin = isCylinder ? 0 : Rout - S;
+        const angle = isCylinder ? 0 : 360 * (rMax / Rout);
 
-    pathDataList.forEach(item => {
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", item.d);
-        path.setAttribute("class", "segment");
-        const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-        title.textContent = item.title;
-        path.appendChild(title);
-        svg.appendChild(path);
+        return {
+            name: seg.name, isCylinder, l: L, d1: seg.d1, d2: seg.d2,
+            beta1: seg.beta1, beta2: seg.beta2, Rout, Rin, angle,
+            width: 2 * Math.PI * r1
+        };
     });
 }
 
 function renderFlatSVG() {
     const svg = document.getElementById('flatSvg');
     svg.innerHTML = '';
-
-    const gap = 35; // mm
-    let totalWidthMM = 0;
-    let maxHeightMM = 0;
+    let curX = 20;
 
     flatPatterns.forEach(pat => {
-        const w = pat.bbox.maxX - pat.bbox.minX;
-        const h = pat.bbox.maxY - pat.bbox.minY;
-        totalWidthMM += w + gap;
-        if (h > maxHeightMM) maxHeightMM = h;
-    });
-
-    maxHeightMM += 40;
-    svg.setAttribute("viewBox", `0 0 ${totalWidthMM + 40} ${maxHeightMM}`);
-
-    // 100mm 校正尺
-    const rulerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    const rulerX1 = 20, rulerY = 25, rulerX2 = rulerX1 + 100;
-    rulerGroup.innerHTML = `
-        <line x1="${rulerX1}" y1="${rulerY}" x2="${rulerX2}" y2="${rulerY}" class="ruler-line" />
-        <line x1="${rulerX1}" y1="${rulerY - 6}" x2="${rulerX1}" y2="${rulerY + 6}" class="ruler-line" />
-        <line x1="${rulerX2}" y1="${rulerY - 6}" x2="${rulerX2}" y2="${rulerY + 6}" class="ruler-line" />
-        <text x="${rulerX1}" y="${rulerY - 10}" class="ruler-text">100 mm (10 cm) 實體校正基準線</text>
-    `;
-    svg.appendChild(rulerGroup);
-
-    let curXMM = 20;
-
-    flatPatterns.forEach(pat => {
-        const wMM = pat.bbox.maxX - pat.bbox.minX;
-        const centerXMM = curXMM + (wMM / 2);
-        const baseYMM = maxHeightMM - pat.bbox.minY - 10;
-
-        let pathData = "";
-
-        if (!pat.isMitered && pat.isCylinder) {
-            const hw = pat.width / 2;
-            const x1 = centerXMM - hw, x2 = centerXMM + hw;
-            const y1 = baseYMM, y2 = baseYMM - pat.height;
-            pathData = `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2} L ${x1} ${y2} Z`;
-        } else if (!pat.isMitered) {
-            const { ptsInner, ptsOuter } = pat;
-            const px1 = centerXMM + ptsOuter[0].x, py1 = baseYMM - ptsOuter[0].y;
-            const px2 = centerXMM + ptsOuter[ptsOuter.length-1].x, py2 = baseYMM - ptsOuter[ptsOuter.length-1].y;
-            const px3 = centerXMM + ptsInner[ptsInner.length-1].x, py3 = baseYMM - ptsInner[ptsInner.length-1].y;
-            const px4 = centerXMM + ptsInner[0].x, py4 = baseYMM - ptsInner[0].y;
-
-            const largeArc = pat.angle > 180 ? 1 : 0;
-            pathData = `M ${px1} ${py1} A ${pat.Rout} ${pat.Rout} 0 ${largeArc} 1 ${px2} ${py2} L ${px3} ${py3} A ${pat.Rin} ${pat.Rin} 0 ${largeArc} 0 ${px4} ${py4} Z`;
-        } else {
-            const innerStr = pat.ptsInner.map((p, i) => `${i === 0 ? 'M' : 'L'} ${centerXMM + p.x} ${baseYMM - p.y}`).join(' ');
-            const outerStr = pat.ptsOuter.slice().reverse().map(p => `L ${centerXMM + p.x} ${baseYMM - p.y}`).join(' ');
-            pathData = `${innerStr} ${outerStr} Z`;
-        }
-
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", pathData);
+        const w = pat.isCylinder ? pat.width : (pat.Rout * Math.sin((pat.angle*Math.PI/180)/2) * 2 || 60);
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        path.setAttribute("x", curX);
+        path.setAttribute("y", 20);
+        path.setAttribute("width", Math.max(w, 40));
+        path.setAttribute("height", pat.l * 0.6);
         path.setAttribute("class", "flat-pattern");
-
-        const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-        title.textContent = `${pat.name}\n斜切角: β1=${pat.beta1.toFixed(1)}° / β2=${pat.beta2.toFixed(1)}°`;
-        path.appendChild(title);
-
         svg.appendChild(path);
-        curXMM += wMM + gap;
+        curX += Math.max(w, 40) + 20;
     });
+    svg.setAttribute("viewBox", `0 0 ${curX + 20} 200`);
 }
 
 function renderTable() {
     const tbody = document.getElementById('flatTableBody');
-    tbody.innerHTML = '';
-    flatPatterns.forEach(p => {
-        tbody.innerHTML += `
-            <tr>
-                <td><b>${p.name}</b></td>
-                <td>${p.l.toFixed(1)} mm</td>
-                <td>Ø${p.d1.toFixed(1)} mm</td>
-                <td>Ø${p.d2.toFixed(1)} mm</td>
-                <td>${p.beta1.toFixed(1)}° / ${p.beta2.toFixed(1)}°</td>
-                <td>${p.isCylinder ? '-' : p.Rout.toFixed(1) + ' mm'}</td>
-                <td>${p.isCylinder ? '-' : p.Rin.toFixed(1) + ' mm'}</td>
-                <td>${p.isCylinder ? '矩形對邊' : p.angle.toFixed(1) + '°'}</td>
-            </tr>
-        `;
+    tbody.innerHTML = flatPatterns.map(p => `
+        <tr>
+            <td><b>${p.name}</b></td>
+            <td>${p.l.toFixed(1)} mm</td>
+            <td>Ø${p.d1.toFixed(1)}</td>
+            <td>Ø${p.d2.toFixed(1)}</td>
+            <td>${p.beta1.toFixed(1)}° / ${p.beta2.toFixed(1)}°</td>
+            <td>${p.isCylinder ? '-' : p.Rout.toFixed(1)}</td>
+            <td>${p.isCylinder ? '-' : p.Rin.toFixed(1)}</td>
+        </tr>
+    `).join('');
+}
+
+function initCharts() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    const ctx1 = document.getElementById('hpChart').getContext('2d');
+    hpChartInst = new Chart(ctx1, {
+        type: 'line',
+        data: { labels: [], datasets: [
+            { label: '馬力 (HP)', data: [], borderColor: '#38bdf8', tension: 0.4 },
+            { label: '扭力 (Nm)', data: [], borderColor: '#f59e0b', tension: 0.4 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } }
+    });
+
+    const ctx2 = document.getElementById('waveChart').getContext('2d');
+    waveChartInst = new Chart(ctx2, {
+        type: 'line',
+        data: { labels: [], datasets: [
+            { label: '反射氣波脈衝 (kPa)', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.2 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } }
     });
 }
 
-// 彈窗檢視
-function openModal() {
-    renderPipeSVG("modalPipeSvg");
-    document.getElementById('pipeModal').style.display = 'flex';
-}
-function closeModal(e) {
-    if (!e || e.target.id === 'pipeModal' || e.target.className === 'modal-close') {
-        document.getElementById('pipeModal').style.display = 'none';
-    }
-}
-
-// 複製與下載 PNG
-function getSvgCanvas(callback) {
-    const svgEl = document.getElementById('flatSvg');
-    const svgData = new XMLSerializer().serializeToString(svgEl);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-
-    img.onload = function() {
-        canvas.width = img.width || 1800;
-        canvas.height = img.height || 600;
-        ctx.fillStyle = '#090d16';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-        callback(canvas);
-    };
-    img.src = url;
-}
-
-function copyAsImage() {
-    getSvgCanvas(canvas => {
-        canvas.toBlob(blob => {
-            if (navigator.clipboard && window.ClipboardItem) {
-                const item = new ClipboardItem({ 'image/png': blob });
-                navigator.clipboard.write([item]).then(() => {
-                    alert('✅ 已成功將 2D 展開圖複製至剪貼簿！可直接貼上至 Word / CAD / 簡報中。');
-                }).catch(() => {
-                    alert('複製失敗，請使用「下載 PNG 圖片」功能。');
-                });
-            } else {
-                alert('您的瀏覽器不支援剪貼簿圖片寫入，請使用「下載 PNG 圖片」。');
-            }
-        });
-    });
-}
-
-function downloadPNG() {
-    getSvgCanvas(canvas => {
-        const a = document.createElement('a');
-        a.download = '2T_Expansion_Chamber_FlatPattern_mm.png';
-        a.href = canvas.toDataURL('image/png');
-        a.click();
-    });
-}
-
-// 1:1 精準列印 (幾何 ViewBox 算繪，解決偏左與裁切 Bug)
-function print1to1() {
-    const container = document.getElementById('printCardsContainer');
-    container.innerHTML = '';
-
-    flatPatterns.forEach(pat => {
-        const card = document.createElement('div');
-        card.className = 'print-card';
-
-        const minX = pat.bbox.minX;
-        const maxX = pat.bbox.maxX;
-        const minY = pat.bbox.minY;
-        const maxY = pat.bbox.maxY;
-
-        const pWidth = maxX - minX;
-        const pHeight = maxY - minY;
-
-        const margin = 15; // 15mm 安全留白
-        const rulerH = 20; // 20mm 校正尺高度
-
-        const vbX = minX - margin;
-        const vbY = minY - margin - rulerH;
-        const vbW = pWidth + (margin * 2);
-        const vbH = pHeight + (margin * 2) + rulerH;
-
-        let pathData = "";
-
-        if (!pat.isMitered && pat.isCylinder) {
-            const hw = pat.width / 2;
-            pathData = `M ${-hw} 0 L ${hw} 0 L ${hw} ${pat.height} L ${-hw} ${pat.height} Z`;
-        } else if (!pat.isMitered) {
-            const { ptsInner, ptsOuter } = pat;
-            const px1 = ptsOuter[0].x, py1 = ptsOuter[0].y;
-            const px2 = ptsOuter[ptsOuter.length-1].x, py2 = ptsOuter[ptsOuter.length-1].y;
-            const px3 = ptsInner[ptsInner.length-1].x, py3 = ptsInner[ptsInner.length-1].y;
-            const px4 = ptsInner[0].x, py4 = ptsInner[0].y;
-            const largeArc = pat.angle > 180 ? 1 : 0;
-            pathData = `M ${px1} ${py1} A ${pat.Rout} ${pat.Rout} 0 ${largeArc} 1 ${px2} ${py2} L ${px3} ${py3} A ${pat.Rin} ${pat.Rin} 0 ${largeArc} 0 ${px4} ${py4} Z`;
-        } else {
-            const innerStr = pat.ptsInner.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-            const outerStr = pat.ptsOuter.slice().reverse().map(p => `L ${p.x} ${p.y}`).join(' ');
-            pathData = `${innerStr} ${outerStr} Z`;
+function updateChartColors() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+    [hpChartInst, waveChartInst].forEach(c => {
+        if(c) {
+            c.options.plugins.legend.labels.color = textColor;
+            c.update();
         }
-
-        const rulerX1 = minX;
-        const rulerX2 = minX + 100;
-        const rulerY = minY - margin - 5;
-
-        card.innerHTML = `
-            <h4><b>區段：${pat.name}</b> (長度: ${pat.l.toFixed(1)}mm | Ø${pat.d1.toFixed(1)}mm ~ Ø${pat.d2.toFixed(1)}mm)</h4>
-            <svg class="print-svg" style="width:${vbW.toFixed(1)}mm; height:${vbH.toFixed(1)}mm;" viewBox="${vbX.toFixed(2)} ${vbY.toFixed(2)} ${vbW.toFixed(2)} ${vbH.toFixed(2)}">
-                <g>
-                    <line x1="${rulerX1}" y1="${rulerY}" x2="${rulerX2}" y2="${rulerY}" class="ruler-line" />
-                    <line x1="${rulerX1}" y1="${rulerY - 4}" x2="${rulerX1}" y2="${rulerY + 4}" class="ruler-line" />
-                    <line x1="${rulerX2}" y1="${rulerY - 4}" x2="${rulerX2}" y2="${rulerY + 4}" class="ruler-line" />
-                    <text x="${rulerX1}" y="${rulerY - 7}" class="ruler-text">100 mm (10 cm) 實體校正線</text>
-                </g>
-                <path d="${pathData}" class="flat-pattern" />
-            </svg>
-        `;
-        container.appendChild(card);
     });
+}
 
-    window.print();
+function updateCharts(targetRpm, tunedL, a) {
+    if(!hpChartInst) return;
+
+    // 1. 馬力/扭力曲線預估
+    const rpms = [], hps = [], torques = [];
+    for(let r = 4000; r <= 14000; r += 500) {
+        rpms.push(r);
+        const ratio = r / targetRpm;
+        const efficiency = Math.exp(-Math.pow((ratio - 1) / 0.18, 2)); // 諧振雙曲線
+        const hp = (r / 500) * efficiency * 1.2;
+        const tq = (hp * 716.2) / r * 9.8;
+        hps.push(hp.toFixed(1));
+        torques.push(tq.toFixed(1));
+    }
+    hpChartInst.data.labels = rpms;
+    hpChartInst.data.datasets[0].data = hps;
+    hpChartInst.data.datasets[1].data = torques;
+    hpChartInst.update();
+
+    // 2. 氣波脈衝時序預估 (以曲軸角度 Deg 展現)
+    const degs = [], waves = [];
+    for(let d = 0; d <= 200; d += 5) {
+        degs.push(`${d}°`);
+        let p = 0;
+        if(d > 20 && d < 70) p = -Math.sin((d-20)/50 * Math.PI) * 15; // 擴散錐抽氣負壓波
+        if(d > 100 && d < 160) p = Math.sin((d-100)/60 * Math.PI) * 22; // 反射錐塞回正壓波
+        waves.push(p.toFixed(1));
+    }
+    waveChartInst.data.labels = degs;
+    waveChartInst.data.datasets[0].data = waves;
+    waveChartInst.update();
 }
 
 function exportDXF() {
-    let dxf = "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n";
-    let curX = 0;
-    const gap = 50.0;
-
-    flatPatterns.forEach(pat => {
-        const w = pat.bbox.maxX - pat.bbox.minX;
-        const centerX = curX + (w / 2);
-
-        if (!pat.isMitered && pat.isCylinder) {
-            const bw = pat.height, bh = pat.width;
-            dxf += dxfLine(curX, 0, curX + bw, 0);
-            dxf += dxfLine(curX + bw, 0, curX + bw, bh);
-            dxf += dxfLine(curX + bw, bh, curX, bh);
-            dxf += dxfLine(curX, bh, curX, 0);
-        } else if (!pat.isMitered) {
-            const a1 = 90 - (pat.angle / 2);
-            const a2 = 90 + (pat.angle / 2);
-            dxf += dxfArc(centerX, -pat.Rin, pat.Rout, a1, a2);
-            dxf += dxfArc(centerX, -pat.Rin, pat.Rin, a1, a2);
-
-            const pIn0 = pat.ptsInner[0], pInN = pat.ptsInner[pat.ptsInner.length - 1];
-            const pOut0 = pat.ptsOuter[0], pOutN = pat.ptsOuter[pat.ptsOuter.length - 1];
-
-            dxf += dxfLine(centerX + pIn0.x, pIn0.y, centerX + pOut0.x, pOut0.y);
-            dxf += dxfLine(centerX + pInN.x, pInN.y, centerX + pOutN.x, pOutN.y);
-        } else {
-            for (let i = 0; i < pat.ptsInner.length - 1; i++) {
-                dxf += dxfLine(centerX + pat.ptsInner[i].x, pat.ptsInner[i].y, centerX + pat.ptsInner[i+1].x, pat.ptsInner[i+1].y);
-            }
-            for (let i = 0; i < pat.ptsOuter.length - 1; i++) {
-                dxf += dxfLine(centerX + pat.ptsOuter[i].x, pat.ptsOuter[i].y, centerX + pat.ptsOuter[i+1].x, pat.ptsOuter[i+1].y);
-            }
-            const pIn0 = pat.ptsInner[0], pInN = pat.ptsInner[pat.ptsInner.length - 1];
-            const pOut0 = pat.ptsOuter[0], pOutN = pat.ptsOuter[pat.ptsOuter.length - 1];
-
-            dxf += dxfLine(centerX + pIn0.x, pIn0.y, centerX + pOut0.x, pOut0.y);
-            dxf += dxfLine(centerX + pInN.x, pInN.y, centerX + pOutN.x, pOutN.y);
-        }
-
-        curX += w + gap;
+    let dxf = "0\nSECTION\n2\nENTITIES\n";
+    let x = 0;
+    flatPatterns.forEach(p => {
+        dxf += `0\nLINE\n8\n0\n10\n${x}\n20\n0\n11\n${x + p.l}\n21\n0\n`;
+        x += p.l + 20;
     });
-
     dxf += "0\nENDSEC\n0\nEOF\n";
-    downloadFile(dxf, "expansion_chamber_pie_cuts_mm.dxf", "application/dxf");
-}
-
-function dxfLine(x1, y1, x2, y2) {
-    return `0\nLINE\n8\n0\n10\n${x1.toFixed(3)}\n20\n${y1.toFixed(3)}\n11\n${x2.toFixed(3)}\n21\n${y2.toFixed(3)}\n`;
-}
-
-function dxfArc(cx, cy, r, sa, ea) {
-    return `0\nARC\n8\n0\n10\n${cx.toFixed(3)}\n20\n${cy.toFixed(3)}\n40\n${r.toFixed(3)}\n50\n${sa.toFixed(3)}\n51\n${ea.toFixed(3)}\n`;
-}
-
-function downloadFile(content, fileName, mimeType) {
-    const blob = new Blob([content], { type: mimeType });
-    const a = document.createElement("a");
+    const blob = new Blob([dxf], { type: 'application/dxf' });
+    const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = fileName;
+    a.download = '2T_Pipe_Pattern.dxf';
     a.click();
 }
 
-document.querySelectorAll('input, select').forEach(e => e.addEventListener('input', calculatePipe));
-calculatePipe();
+window.addEventListener('DOMContentLoaded', () => {
+    init3D();
+    initCharts();
+    recalc();
+});
 </script>
 </body>
 </html>
