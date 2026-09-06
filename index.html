@@ -152,13 +152,20 @@
             padding: 4px; border-radius: 6px; backdrop-filter: blur(4px);
         }
 
+        .chart-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
         .chart-container {
             position: relative;
             background: var(--panel-card);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 10px;
-            height: 240px;
+            height: 250px;
         }
 
         .tab-bar { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
@@ -201,12 +208,27 @@
             margin-bottom: 8px;
         }
 
+        /* 放大檢視 Modal 視窗 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(5px);
+            z-index: 9999; display: flex; align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 12px; width: 92%; max-width: 1100px; padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px;
+        }
+
         .print-only { display: none; }
 
-        /* 1:1 彈性紙張列印樣式 (不限制 A4 / A3 / 繪圖機捲筒紙) */
         @media print {
             body { background: #fff !important; color: #000 !important; padding: 0 !important; }
-            .no-print, header, .header-actions, .grid-layout > .card:first-child, .tab-bar, .toolbar-3d, #tab3D, #tabSim { display: none !important; }
+            .no-print, header, .header-actions, .grid-layout > .card:first-child, .tab-bar, .toolbar-3d, #tab3D, #tabSim, .modal-overlay { display: none !important; }
             .grid-layout { display: block !important; }
             .card { border: none !important; box-shadow: none !important; padding: 0 !important; background: transparent !important; }
             .tab-content { display: block !important; }
@@ -255,10 +277,11 @@
                 </div>
 
                 <div class="input-field">
-                    <label>目標峰值轉速 (Target RPM)</label>
+                    <label>目標峰值轉速 (Target RPM - 上限 25,000)</label>
                     <div class="slider-row">
-                        <input type="range" id="rpmSlider" min="5000" max="15000" step="100" value="10000" oninput="syncVal('rpm', this.value)">
-                        <input type="number" id="rpmInput" class="num-input" value="10000" onchange="syncVal('rpm', this.value)">
+                        <!-- 極限提升至 25,000 RPM -->
+                        <input type="range" id="rpmSlider" min="3000" max="25000" step="100" value="10000" oninput="syncVal('rpm', this.value)">
+                        <input type="number" id="rpmInput" class="num-input" value="10000" min="3000" max="25000" onchange="syncVal('rpm', this.value)">
                     </div>
                 </div>
 
@@ -338,13 +361,17 @@
 
             <!-- Tab 2: 模擬圖表 -->
             <div id="tabSim" class="tab-content">
-                <div style="display:flex; flex-direction:column; gap:12px;">
+                <div style="display:flex; flex-direction:column; gap:16px;">
                     <div>
-                        <div style="font-size:0.85rem; font-weight:bold; margin-bottom:4px; color:var(--accent);">預估馬力與扭力輸出曲線 (HP & Torque vs RPM)</div>
+                        <div class="chart-header-row">
+                            <div style="font-size:0.85rem; font-weight:bold; color:var(--accent);">預估馬力與扭力輸出曲線 (HP & Torque vs RPM)</div>
+                            <button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; min-height:28px;" onclick="openChartModal()">🔍 放大檢視</button>
+                        </div>
+                        <div id="peakInfoTag" style="font-size:0.78rem; color:var(--text-sub); margin-bottom:6px;"></div>
                         <div class="chart-container"><canvas id="hpChart"></canvas></div>
                     </div>
                     <div>
-                        <div style="font-size:0.85rem; font-weight:bold; margin-bottom:4px; color:var(--accent);">排氣門端壓力波形脈衝 (Exhaust Pressure Wave Pulse - kPa)</div>
+                        <div style="font-size:0.85rem; font-weight:bold; margin-bottom:6px; color:var(--accent);">排氣門端壓力波形脈衝 (Exhaust Pressure Wave Pulse - kPa)</div>
                         <div class="chart-container"><canvas id="waveChart"></canvas></div>
                     </div>
                 </div>
@@ -384,10 +411,23 @@
     </div>
 </div>
 
+<!-- 馬力圖放大檢視 Modal -->
+<div id="chartModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 style="margin:0; font-size:1.05rem; color:var(--accent);">馬力與扭力輸出曲線 (放大檢視)</h3>
+            <button class="btn btn-outline" style="padding:4px 10px; min-height:30px;" onclick="closeChartModal()">✕ 關閉</button>
+        </div>
+        <div style="height: 520px; position: relative;">
+            <canvas id="hpChartModalCanvas"></canvas>
+        </div>
+    </div>
+</div>
+
 <script>
 let scene3D, camera3D, renderer3D, controls3D, pipeGroup3D;
 let isAutoRotate = true, isWireframe = false;
-let hpChartInst = null, waveChartInst = null;
+let hpChartInst = null, waveChartInst = null, hpChartModalInst = null;
 let currentSegments = [];
 
 function toggleTheme() {
@@ -476,7 +516,7 @@ function recalc() {
 
     // 管徑基礎計算
     const headerD = Math.sqrt(cc / 136) * 35;
-    const headerEndD = headerD * 1.08; // 修正：頭段出口漸擴至 1.08 倍（Ø37.8mm），無縫對接擴散錐
+    const headerEndD = headerD * 1.08;
     const bellyD = headerD * 2.7;
     const stingerD = headerD * 0.6;
 
@@ -487,7 +527,7 @@ function recalc() {
 
     currentSegments = [];
 
-    // 1. 蝦殼彎節演算 (修正插值邏輯與周長切角計算)
+    // 1. 蝦殼彎節演算
     if (bendAngle > 0 && bendCuts > 0) {
         const miterAngleDeg = bendAngle / (2 * bendCuts);
         const betaRad = (bendAngle * Math.PI / 180) / (2 * bendCuts);
@@ -498,13 +538,12 @@ function recalc() {
             const d2 = headerD + (headerEndD - headerD) * ((i + 1) / bendCuts);
             const avgD = (d1 + d2) / 2;
             const circ = Math.PI * avgD;
-            const hDiff = avgD * Math.tan(betaRad); // 正弦曲線上下高低差
+            const hDiff = avgD * Math.tan(betaRad);
 
             currentSegments.push({
                 name: `1-${i+1}. 蝦殼彎節 ${i+1}/${bendCuts}`,
                 l: subL, d1: d1, d2: d2,
-                beta1: miterAngleDeg,
-                beta2: miterAngleDeg,
+                beta1: miterAngleDeg, beta2: miterAngleDeg,
                 turnAngle: bendAngle / bendCuts,
                 info: `平均周長 ${circ.toFixed(1)}mm (正弦高低差 ${hDiff.toFixed(1)}mm)`,
                 isBend: true
@@ -519,7 +558,7 @@ function recalc() {
         });
     }
 
-    // 2. 擴散錐 (Diffuser) - 計算圓錐扇形參數
+    // 2. 擴散錐
     const r1_diff = headerEndD / 2, r2_diff = bellyD / 2;
     const S_diff = Math.sqrt(diffL * diffL + Math.pow(r2_diff - r1_diff, 2));
     const Rout_diff = (r2_diff * S_diff) / (r2_diff - r1_diff);
@@ -531,14 +570,14 @@ function recalc() {
         info: `圓錐扇角 ${phiDeg_diff.toFixed(1)}° (Rout: ${Rout_diff.toFixed(1)}mm)`
     });
 
-    // 3. 膨脹室 (Belly)
+    // 3. 膨脹室
     currentSegments.push({
         name: "3. 膨脹室 (Belly)", l: bellyL, d1: bellyD, d2: bellyD,
         beta1: 0, beta2: 0, turnAngle: 0,
         info: `周長 ${(Math.PI * bellyD).toFixed(1)}mm`
     });
 
-    // 4. 反射錐 (Baffle) - 計算圓錐扇形參數
+    // 4. 反射錐
     const r1_baff = bellyD / 2, r2_baff = stingerD / 2;
     const S_baff = Math.sqrt(baffleL * baffleL + Math.pow(r1_baff - r2_baff, 2));
     const Rout_baff = (r1_baff * S_baff) / (r1_baff - r2_baff);
@@ -550,14 +589,14 @@ function recalc() {
         info: `圓錐扇角 ${phiDeg_baff.toFixed(1)}° (Rout: ${Rout_baff.toFixed(1)}mm)`
     });
 
-    // 5. 尾管 (Stinger)
+    // 5. 尾管
     currentSegments.push({
         name: "5. 尾管 (Stinger)", l: stingerD * 10, d1: stingerD, d2: stingerD,
         beta1: 0, beta2: 0, turnAngle: 0,
         info: `周長 ${(Math.PI * stingerD).toFixed(1)}mm`
     });
 
-    // 6. 消音器 (Silencer)
+    // 6. 消音器
     currentSegments.push({
         name: "6. 消音器 (Silencer)", l: silL, d1: silD, d2: silD,
         beta1: 0, beta2: 0, turnAngle: 0, isSilencer: true,
@@ -576,7 +615,7 @@ function recalc() {
     render3DPipe();
     renderUnfoldSVGs();
     renderTable();
-    updateCharts(rpm, tunedLength, soundSpeed);
+    updateCharts(rpm, tunedLength, soundSpeed, cc);
 }
 
 function render3DPipe() {
@@ -626,19 +665,16 @@ function render3DPipe() {
     pipeGroup3D.position.sub(center);
 }
 
-// 精確 2D SVG 展開圖繪製 (包含正弦切角與圓錐弧形邊界校正)
 function renderUnfoldSVGs() {
     const container = document.getElementById('svgContainer');
     container.innerHTML = '';
 
-    currentSegments.forEach((seg, idx) => {
+    currentSegments.forEach((seg) => {
         const div = document.createElement('div');
         div.className = 'unfold-item';
-
         let svgHtml = '';
         const strokeColor = 'var(--accent)';
 
-        // 1. 蝦殼彎節 (Mitered Cut Segment - 精確正弦波)
         if (seg.beta1 > 0 || seg.beta2 > 0) {
             const circAvg = Math.PI * ((seg.d1 + seg.d2) / 2);
             const L = seg.l;
@@ -677,9 +713,7 @@ function renderUnfoldSVGs() {
                     <path d="${pathD}" stroke="${strokeColor}" stroke-width="1.5" fill="rgba(56, 189, 248, 0.1)"/>
                 </svg>
             `;
-        }
-        // 2. 圓錐台展開 (擴散錐 / 反射錐 - 圓錐扇形)
-        else if (Math.abs(seg.d1 - seg.d2) > 0.5) {
+        } else if (Math.abs(seg.d1 - seg.d2) > 0.5) {
             const rStart = seg.d1 / 2, rEnd = seg.d2 / 2;
             const rMin = Math.min(rStart, rEnd);
             const rMax = Math.max(rStart, rEnd);
@@ -689,7 +723,6 @@ function renderUnfoldSVGs() {
             const Rout = (rMax * S) / (rMax - rMin);
             const Rin = Rout - S;
             const phi = 2 * Math.PI * (rMax / Rout);
-            const phiDeg = phi * 180 / Math.PI;
 
             const halfPhi = phi / 2;
             const spanW = 2 * Rout * Math.sin(halfPhi);
@@ -723,9 +756,7 @@ function renderUnfoldSVGs() {
                     <path d="${pathD}" stroke="${strokeColor}" stroke-width="1.5" fill="rgba(56, 189, 248, 0.1)"/>
                 </svg>
             `;
-        }
-        // 3. 直筒圓柱 (膨脹室 / 尾管 / 消音器)
-        else {
+        } else {
             const C = Math.PI * seg.d1;
             const L = seg.l;
             const padW = 30, padH = 30;
@@ -767,21 +798,32 @@ function initCharts() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#94a3b8' : '#64748b';
 
-    const ctx1 = document.getElementById('hpChart').getContext('2d');
-    hpChartInst = new Chart(ctx1, {
+    const chartConfig = {
         type: 'line',
         data: { labels: [], datasets: [
-            { label: '馬力 (HP)', data: [], borderColor: '#38bdf8', tension: 0.4 },
-            { label: '扭力 (Nm)', data: [], borderColor: '#f59e0b', tension: 0.4 }
+            { label: '馬力 (HP)', data: [], borderColor: '#38bdf8', backgroundColor: '#38bdf8', pointRadius: 3, pointHoverRadius: 6, tension: 0.3 },
+            { label: '扭力 (Nm)', data: [], borderColor: '#f59e0b', backgroundColor: '#f59e0b', pointRadius: 3, pointHoverRadius: 6, tension: 0.3 }
         ]},
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } }
-    });
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { labels: { color: textColor } } },
+            scales: {
+                x: { ticks: { color: textColor } },
+                y: { ticks: { color: textColor } }
+            }
+        }
+    };
+
+    const ctx1 = document.getElementById('hpChart').getContext('2d');
+    hpChartInst = new Chart(ctx1, chartConfig);
 
     const ctx2 = document.getElementById('waveChart').getContext('2d');
     waveChartInst = new Chart(ctx2, {
         type: 'line',
         data: { labels: [], datasets: [
-            { label: '排氣波脈衝 (kPa)', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.2 }
+            { label: '排氣波脈衝 (kPa)', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, pointRadius: 2, tension: 0.2 }
         ]},
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } }
     });
@@ -790,32 +832,62 @@ function initCharts() {
 function updateChartColors() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#94a3b8' : '#64748b';
-    [hpChartInst, waveChartInst].forEach(c => {
+    [hpChartInst, waveChartInst, hpChartModalInst].forEach(c => {
         if(c) {
             c.options.plugins.legend.labels.color = textColor;
+            if(c.options.scales) {
+                c.options.scales.x.ticks.color = textColor;
+                c.options.scales.y.ticks.color = textColor;
+            }
             c.update();
         }
     });
 }
 
-function updateCharts(targetRpm, tunedL, a) {
+// 動態適配高轉速（最高 30,000 RPM）的馬力與扭力波形計算
+function updateCharts(targetRpm, tunedL, a, cc) {
     if(!hpChartInst) return;
 
+    // 動態計算轉速範圍：從 0.3*Target 至 1.4*Target，確保波峰完整居中
+    const minRpm = Math.max(2000, Math.floor((targetRpm * 0.3) / 500) * 500);
+    const maxRpm = Math.min(30000, Math.ceil((targetRpm * 1.4) / 500) * 500);
+    const stepRpm = Math.max(250, Math.round((maxRpm - minRpm) / 30 / 100) * 100);
+
     const rpms = [], hps = [], torques = [];
-    for(let r = 4000; r <= 14000; r += 500) {
+    let maxHp = 0, maxHpRpm = 0, maxTq = 0, maxTqRpm = 0;
+
+    // 以 2T 引擎馬力係數進行實施運算
+    const basePowerCoeff = (cc / 136) * 1.35;
+
+    for(let r = minRpm; r <= maxRpm; r += stepRpm) {
         rpms.push(r);
         const ratio = r / targetRpm;
-        const efficiency = Math.exp(-Math.pow((ratio - 1) / 0.18, 2));
-        const hp = (r / 500) * efficiency * 1.2;
-        const tq = (hp * 716.2) / r * 9.8;
-        hps.push(hp.toFixed(1));
-        torques.push(tq.toFixed(1));
+
+        // 諧振帶高斯效能曲線
+        const efficiency = Math.exp(-Math.pow((ratio - 1) / 0.16, 2));
+        const hp = (r / 480) * basePowerCoeff * (0.2 + 0.8 * efficiency);
+        const tq = (hp * 716.2) / r * 9.80665;
+
+        const hpVal = parseFloat(hp.toFixed(1));
+        const tqVal = parseFloat(tq.toFixed(1));
+
+        if(hpVal > maxHp) { maxHp = hpVal; maxHpRpm = r; }
+        if(tqVal > maxTq) { maxTq = tqVal; maxTqRpm = r; }
+
+        hps.push(hpVal);
+        torques.push(tqVal);
     }
+
     hpChartInst.data.labels = rpms;
     hpChartInst.data.datasets[0].data = hps;
     hpChartInst.data.datasets[1].data = torques;
     hpChartInst.update();
 
+    document.getElementById('peakInfoTag').innerHTML = `
+        🎯 預估極限峰值：<b>${maxHp} HP</b> @ ${maxHpRpm.toLocaleString()} RPM | 最大扭力：<b>${maxTq} Nm</b> @ ${maxTqRpm.toLocaleString()} RPM
+    `;
+
+    // 排氣門壓力波形
     const degs = [], waves = [];
     for(let d = 0; d <= 200; d += 5) {
         degs.push(`${d}°`);
@@ -827,6 +899,45 @@ function updateCharts(targetRpm, tunedL, a) {
     waveChartInst.data.labels = degs;
     waveChartInst.data.datasets[0].data = waves;
     waveChartInst.update();
+
+    if(hpChartModalInst) {
+        hpChartModalInst.data.labels = rpms;
+        hpChartModalInst.data.datasets[0].data = hps;
+        hpChartModalInst.data.datasets[1].data = torques;
+        hpChartModalInst.update();
+    }
+}
+
+// 彈出放大 Modal 繪製
+function openChartModal() {
+    document.getElementById('chartModal').style.display = 'flex';
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    if(!hpChartModalInst) {
+        const ctxModal = document.getElementById('hpChartModalCanvas').getContext('2d');
+        hpChartModalInst = new Chart(ctxModal, {
+            type: 'line',
+            data: JSON.parse(JSON.stringify(hpChartInst.data)),
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { labels: { color: textColor, font: { size: 14 } } } },
+                scales: {
+                    x: { ticks: { color: textColor, font: { size: 12 } } },
+                    y: { ticks: { color: textColor, font: { size: 12 } } }
+                }
+            }
+        });
+    } else {
+        hpChartModalInst.data = JSON.parse(JSON.stringify(hpChartInst.data));
+        hpChartModalInst.update();
+    }
+}
+
+function closeChartModal() {
+    document.getElementById('chartModal').style.display = 'none';
 }
 
 function exportDXF() {
