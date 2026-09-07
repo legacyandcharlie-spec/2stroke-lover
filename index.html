@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2T 競技排氣管設計by小雞腿</title>
+    <title>2T 競技排氣管設計與動態氣流模擬系統 (無縫蝦殼優化版)by小雞腿</title>
     <!-- 引入 Three.js, OrbitControls, Chart.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -259,7 +259,7 @@
 
 <div class="app-container">
     <header class="no-print">
-        <h1>2T 競技排氣管設計與動態氣流模擬系統</h1>
+        <h1>2T 競技排氣管設計與動態氣流模擬系統 (無縫蝦殼優化版)</h1>
         <div class="header-actions">
             <button class="btn btn-outline" onclick="saveConfig()">📥 儲存設定</button>
             <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 載入設定</button>
@@ -574,7 +574,7 @@ function triggerPrint() {
     setTimeout(() => { window.print(); }, 200);
 }
 
-// 3D 視圖初始化 (支援拖曳平移、旋轉、縮放與手勢)
+// 3D 視圖初始化
 function init3D() {
     const container = document.getElementById('container3D');
     scene3D = new THREE.Scene();
@@ -592,12 +592,10 @@ function init3D() {
     controls3D.enableDamping = true;
     controls3D.dampingFactor = 0.05;
     
-    // 啟用與設定平移功能
     controls3D.enablePan = true;
     controls3D.panSpeed = 1.2;
     controls3D.screenSpacePanning = true;
 
-    // 滑鼠與觸控按鍵配置
     controls3D.mouseButtons = {
         LEFT: THREE.MOUSE.ROTATE,
         MIDDLE: THREE.MOUSE.DOLLY,
@@ -763,7 +761,94 @@ function recalc() {
     updateCharts(rpm, cc);
 }
 
-// 渲染 3D 模型（採用「局部座標系 (Local Frame)」修正彎曲軸向方向錯亂問題）
+// 角平分切面 (Miter Bisector Plane) 無縫管身 Geometry 生成演算法
+function createSeamfreePipeGeometry(nodes, radii, radialSegments = 32) {
+    const numNodes = nodes.length;
+    if (numNodes < 2) return null;
+
+    const rings = [];
+    const dirs = [];
+
+    for (let i = 0; i < numNodes - 1; i++) {
+        dirs.push(new THREE.Vector3().subVectors(nodes[i+1], nodes[i]).normalize());
+    }
+
+    let up = new THREE.Vector3(0, 1, 0);
+    if (Math.abs(dirs[0].dot(up)) > 0.98) up.set(1, 0, 0);
+    let right = new THREE.Vector3().crossVectors(dirs[0], up).normalize();
+    up.crossVectors(right, dirs[0]).normalize();
+
+    for (let i = 0; i < numNodes; i++) {
+        let miterDir, r = radii[i];
+        let currentDir = (i < numNodes - 1) ? dirs[i] : dirs[i - 1];
+
+        if (i === 0) {
+            miterDir = dirs[0].clone();
+        } else if (i === numNodes - 1) {
+            miterDir = dirs[i - 1].clone();
+        } else {
+            // 接點角平分線方向 (Bisector)
+            miterDir = new THREE.Vector3().addVectors(dirs[i - 1], dirs[i]).normalize();
+            
+            // 平行移動更新座標系，消除軸向自旋
+            const prevDir = dirs[i - 1];
+            const axis = new THREE.Vector3().crossVectors(prevDir, dirs[i]);
+            if (axis.lengthSq() > 1e-6) {
+                axis.normalize();
+                const angle = Math.acos(Math.min(Math.max(prevDir.dot(dirs[i]), -1), 1));
+                right.applyAxisAngle(axis, angle);
+                up.crossVectors(right, dirs[i]).normalize();
+            }
+        }
+
+        const ringVertices = [];
+        const dot = miterDir.dot(currentDir);
+        
+        // 計算頂點投影至 Miter 平面上，確保 100% 密合無縫隙
+        for (let j = 0; j < radialSegments; j++) {
+            const theta = (j / radialSegments) * Math.PI * 2;
+            const localOffset = new THREE.Vector3()
+                .addScaledVector(right, Math.cos(theta) * r)
+                .addScaledVector(up, Math.sin(theta) * r);
+
+            const projLength = -localOffset.dot(miterDir) / (dot || 1);
+            const vertex = nodes[i].clone()
+                .add(localOffset)
+                .addScaledVector(currentDir, projLength);
+
+            ringVertices.push(vertex);
+        }
+        rings.push(ringVertices);
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    const verticesList = [];
+    const indicesList = [];
+
+    rings.forEach(ring => {
+        ring.forEach(v => verticesList.push(v.x, v.y, v.z));
+    });
+
+    for (let i = 0; i < numNodes - 1; i++) {
+        for (let j = 0; j < radialSegments; j++) {
+            const curr = i * radialSegments + j;
+            const next = i * radialSegments + ((j + 1) % radialSegments);
+            const currNext = (i + 1) * radialSegments + j;
+            const nextNext = (i + 1) * radialSegments + ((j + 1) % radialSegments);
+
+            indicesList.push(curr, currNext, next);
+            indicesList.push(next, currNext, nextNext);
+        }
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(verticesList, 3));
+    geometry.setIndex(indicesList);
+    geometry.computeVertexNormals();
+
+    return { geometry, exitNode: nodes[numNodes - 1], exitDir: dirs[dirs.length - 1] };
+}
+
+// 渲染 3D 模型 (整合無縫蝦殼演算法與局部座標系)
 function render3DPipe(silL, silD) {
     if(!pipeGroup3D || !previewTailGroup3D) return;
 
@@ -781,22 +866,24 @@ function render3DPipe(silL, silD) {
 
     const titaniumColors = [0x38bdf8, 0x8b5cf6, 0xec4899, 0xf59e0b, 0x10b981];
 
-    // 初始化局部座標系 Frame
-    let pos = new THREE.Vector3(0, 0, 0);
-    let forward = new THREE.Vector3(1, 0, 0); // 沿 X 軸向前
-    let up = new THREE.Vector3(0, 1, 0);      // 局部 Up (+Y)
-    let right = new THREE.Vector3(0, 0, 1);   // 局部 Right (+Z)
+    // 初始化中心軌跡節點 (Nodes) 與對應半徑 (Radii)
+    const pipeNodes = [new THREE.Vector3(0, 0, 0)];
+    const pipeRadii = [];
 
-    // 依頭段扭轉角度調整 Up 與 Right 向量
+    let currentPos = new THREE.Vector3(0, 0, 0);
+    let forward = new THREE.Vector3(1, 0, 0); // 沿 X 軸向前
+    let up = new THREE.Vector3(0, 1, 0);      // 局部 Up
+    let right = new THREE.Vector3(0, 0, 1);   // 局部 Right
+
+    // 應用頭段扭轉角 (Header Twist)
     const twistAngle = parseFloat(document.getElementById('twistInput')?.value || 0);
     const twistRad = twistAngle * Math.PI / 180;
     up.applyAxisAngle(forward, twistRad);
     right.applyAxisAngle(forward, twistRad);
 
-    // 逐段繪製主管路
+    // 構建整體管身軌跡
     currentSegments.forEach((seg, idx) => {
-        const r1 = seg.d1 / 2, r2 = seg.d2 / 2;
-        const segLen = seg.l;
+        if (idx === 0) pipeRadii.push(seg.d1 / 2);
 
         let turnRad = (seg.turnAngle * Math.PI / 180);
         let rotAxis = new THREE.Vector3();
@@ -807,74 +894,60 @@ function render3DPipe(silL, silD) {
                 rotAxis.copy(right);
                 turnRad = -turnRad; // 頭段向下彎曲
             } else {
-                // 膨脹室對應局部座標系旋轉
-                if (seg.bellyDir === 'up') {
-                    rotAxis.copy(right);
-                    turnRad = turnRad;      // 向上 (+Y)
-                } else if (seg.bellyDir === 'down') {
-                    rotAxis.copy(right);
-                    turnRad = -turnRad;     // 向下 (-Y)
-                } else if (seg.bellyDir === 'left') {
-                    rotAxis.copy(up);
-                    turnRad = turnRad;      // 向左 (-Z)
-                } else if (seg.bellyDir === 'right') {
-                    rotAxis.copy(up);
-                    turnRad = -turnRad;     // 向右 (+Z)
-                }
+                if (seg.bellyDir === 'up') rotAxis.copy(right);
+                else if (seg.bellyDir === 'down') rotAxis.copy(right).negate();
+                else if (seg.bellyDir === 'left') rotAxis.copy(up);
+                else if (seg.bellyDir === 'right') rotAxis.copy(up).negate();
             }
-
-            // 前半段轉向
-            forward.applyAxisAngle(rotAxis, turnRad / 2);
-            up.applyAxisAngle(rotAxis, turnRad / 2);
-            right.applyAxisAngle(rotAxis, turnRad / 2);
         }
 
-        const geom = new THREE.CylinderGeometry(r2, r1, segLen, 32);
-        geom.translate(0, segLen / 2, 0);
-
-        const mat = new THREE.MeshStandardMaterial({
-            color: isWireframe ? 0x38bdf8 : titaniumColors[idx % titaniumColors.length],
-            metalness: 0.85, roughness: 0.25,
-            wireframe: isWireframe, transparent: isWireframe, opacity: isWireframe ? 0.4 : 0.92
-        });
-
-        const mesh = new THREE.Mesh(geom, mat);
-        const segGroup = new THREE.Group();
-        segGroup.position.copy(pos);
-
-        const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), forward);
-        segGroup.quaternion.copy(q);
-        segGroup.add(mesh);
-        pipeGroup3D.add(segGroup);
-
-        pos.add(forward.clone().multiplyScalar(segLen));
-
-        // 後半段轉向 (平滑銜接)
+        const segLen = seg.l;
         if (shouldRotate) {
-            forward.applyAxisAngle(rotAxis, turnRad / 2);
-            up.applyAxisAngle(rotAxis, turnRad / 2);
-            right.applyAxisAngle(rotAxis, turnRad / 2);
+            forward.applyAxisAngle(rotAxis, turnRad);
+            up.applyAxisAngle(rotAxis, turnRad);
+            right.applyAxisAngle(rotAxis, turnRad);
         }
+
+        currentPos.add(forward.clone().multiplyScalar(segLen));
+        pipeNodes.push(currentPos.clone());
+        pipeRadii.push(seg.d2 / 2);
     });
 
+    // 呼叫無縫幾何生成器
+    const seamfreeData = createSeamfreePipeGeometry(pipeNodes, pipeRadii, 32);
+    if(seamfreeData && seamfreeData.geometry) {
+        const mat = new THREE.MeshStandardMaterial({
+            color: isWireframe ? 0x38bdf8 : 0x38bdf8,
+            metalness: 0.85, roughness: 0.25,
+            wireframe: isWireframe, transparent: isWireframe, opacity: isWireframe ? 0.4 : 0.95,
+            side: THREE.DoubleSide
+        });
+        const mainMesh = new THREE.Mesh(seamfreeData.geometry, mat);
+        pipeGroup3D.add(mainMesh);
+    }
+
     // 繪製非列印虛擬尾段消音器
-    if(silL && silD) {
+    if(silL && silD && seamfreeData) {
+        const exitNode = seamfreeData.exitNode;
+        const exitDir = seamfreeData.exitDir;
+
         const silGeom = new THREE.CylinderGeometry(silD * 1.5, silD * 1.5, silL, 32);
         silGeom.translate(0, silL / 2, 0);
+
         const silMat = new THREE.MeshStandardMaterial({
             color: 0x94a3b8, transparent: true, opacity: 0.45, roughness: 0.3
         });
         const silMesh = new THREE.Mesh(silGeom, silMat);
         const silGroup = new THREE.Group();
-        silGroup.position.copy(pos);
+        silGroup.position.copy(exitNode);
 
-        const qSil = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), forward);
+        const qSil = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), exitDir);
         silGroup.quaternion.copy(qSil);
         silGroup.add(silMesh);
         previewTailGroup3D.add(silGroup);
     }
 
-    // 將模型置中
+    // 置中 3D 模型
     const bbox = new THREE.Box3().setFromObject(pipeGroup3D);
     const center = new THREE.Vector3();
     bbox.getCenter(center);
