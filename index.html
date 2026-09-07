@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2T 競技排氣管設計系統by大雞腿</title>
+    <title>2T 競技排氣管設計與 1:1 展開圖系統</title>
     <!-- 引入 Three.js, OrbitControls, Chart.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -246,6 +246,10 @@
     <header class="no-print">
         <h1>2T 競技排氣管設計與氣波模擬系統</h1>
         <div class="header-actions">
+            <button class="btn btn-outline" onclick="saveConfig()">📥 儲存設定</button>
+            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 載入設定</button>
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="loadConfig(event)">
+            
             <button class="btn btn-outline" onclick="toggleTheme()" id="themeBtn">🌙 深色模式</button>
             <button class="btn btn-outline" onclick="triggerPrint()">🖨️ 列印 1:1 展開圖</button>
             <button class="btn" onclick="exportDXF()">💾 匯出 CAD (.DXF)</button>
@@ -277,7 +281,7 @@
                 </div>
 
                 <div style="font-size:0.82rem; background:rgba(56, 189, 248, 0.1); padding:6px 10px; border-radius:6px; color:var(--accent);">
-                    計算計算總排氣量: <b id="calcCCDisplay">135.5</b> cc
+                    計算總排氣量: <b id="calcCCDisplay">135.5</b> cc
                 </div>
             </div>
 
@@ -322,6 +326,16 @@
                     </div>
                 </div>
 
+                <!-- 新增：頭段扭轉角度設定 -->
+                <div class="input-field">
+                    <label>頭段扭轉角度 (Header Twist)</label>
+                    <div class="slider-row">
+                        <input type="range" id="twistSlider" min="-180" max="180" step="5" value="0" oninput="syncVal('twist', this.value)">
+                        <input type="number" id="twistInput" class="num-input" value="0" step="5" onchange="syncVal('twist', this.value)">
+                        <span style="font-size:0.8rem;">°</span>
+                    </div>
+                </div>
+
                 <div class="input-field">
                     <label>頭段彎曲半徑 R (Radius)</label>
                     <div class="slider-row">
@@ -336,7 +350,7 @@
                     <input type="number" id="cutsInput" value="5" min="1" max="12" onchange="recalc()">
                 </div>
 
-                <!-- 新增：膨脹室整體角度彎曲功能 -->
+                <!-- 膨脹室整體角度彎曲功能 -->
                 <div class="input-field" style="margin-top:6px; border-top:1px dashed var(--border); padding-top:8px;">
                     <label>膨脹室整體彎曲角度 (Belly Bend)</label>
                     <div class="slider-row">
@@ -468,6 +482,56 @@ let isAutoRotate = true, isWireframe = false;
 let hpChartInst = null, waveChartInst = null, hpChartModalInst = null;
 let currentSegments = [];
 
+// 儲存參數功能 (JSON 匯出)
+function saveConfig() {
+    const config = {
+        bore: document.getElementById('boreInput').value,
+        stroke: document.getElementById('strokeInput').value,
+        dur: document.getElementById('durInput').value,
+        rpm: document.getElementById('rpmInput').value,
+        egt: document.getElementById('egtInput').value,
+        bend: document.getElementById('bendInput').value,
+        twist: document.getElementById('twistInput').value,
+        rad: document.getElementById('radInput').value,
+        cuts: document.getElementById('cutsInput').value,
+        bellyBend: document.getElementById('bellyBendInput').value,
+        bellyDir: document.getElementById('bellyDirInput').value,
+        silL: document.getElementById('silLInput').value,
+        silD: document.getElementById('silDInput').value
+    };
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '2t_pipe_config.json';
+    a.click();
+}
+
+// 載入參數功能 (JSON 匯入)
+function loadConfig(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const config = JSON.parse(e.target.result);
+            for (const [key, val] of Object.entries(config)) {
+                if (document.getElementById(key + 'Input')) {
+                    if(key === 'bellyDir') {
+                        document.getElementById('bellyDirInput').value = val;
+                    } else {
+                        syncVal(key, val);
+                    }
+                }
+            }
+            recalc();
+        } catch(err) {
+            alert('載入設定失敗：檔案格式不正確');
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
 function toggleTheme() {
     const html = document.documentElement;
     const current = html.getAttribute('data-theme');
@@ -488,8 +552,8 @@ function switchTab(tabId) {
 }
 
 function syncVal(key, val) {
-    document.getElementById(key + 'Slider').value = val;
-    document.getElementById(key + 'Input').value = val;
+    if(document.getElementById(key + 'Slider')) document.getElementById(key + 'Slider').value = val;
+    if(document.getElementById(key + 'Input')) document.getElementById(key + 'Input').value = val;
     recalc();
 }
 
@@ -561,7 +625,6 @@ function recalc() {
     const soundSpeed = 20.05 * Math.sqrt(273.15 + egt);
     const tunedLength = (dur * soundSpeed * 1000) / (12 * rpm);
 
-    // 排氣管口徑算式
     const headerD = Math.sqrt(cc / 136) * 35;
     const headerEndD = headerD * 1.08;
     const bellyD = headerD * 2.7;
@@ -592,7 +655,7 @@ function recalc() {
                 l: subL, d1: d1, d2: d2,
                 beta1: miterAngleDeg, beta2: miterAngleDeg,
                 turnAngle: bendAngle / bendCuts,
-                turnAxis: 'z',
+                turnAxis: 'header',
                 info: `平均周長 ${circ.toFixed(1)}mm (正弦高低差 ${hDiff.toFixed(1)}mm)`,
                 isBend: true
             });
@@ -612,7 +675,7 @@ function recalc() {
 
     const halfBellyBend = bellyBend / 2;
 
-    // 2. 擴散錐 ( Diffuser ) - 入口承接，出口做 halfBellyBend 切角
+    // 2. 擴散錐 ( Diffuser )
     const r1_diff = headerEndD / 2, r2_diff = bellyD / 2;
     const S_diff = Math.sqrt(diffL * diffL + Math.pow(r2_diff - r1_diff, 2));
     const Rout_diff = (r2_diff * S_diff) / (r2_diff - r1_diff);
@@ -625,7 +688,7 @@ function recalc() {
         info: `圓錐扇角 ${phiDeg_diff.toFixed(1)}° (切角 ${halfBellyBend.toFixed(1)}°)`
     });
 
-    // 3. 膨脹室 ( Belly ) - 兩端皆帶斜切
+    // 3. 膨脹室 ( Belly )
     currentSegments.push({
         name: "3. 膨脹室 (Belly)", l: bellyL, d1: bellyD, d2: bellyD,
         beta1: halfBellyBend, beta2: halfBellyBend,
@@ -686,6 +749,9 @@ function render3DPipe() {
     let pos = new THREE.Vector3(0,0,0);
     let dir = new THREE.Vector3(1,0,0);
 
+    const twistAngle = parseFloat(document.getElementById('twistInput')?.value || 0);
+    const twistRad = twistAngle * Math.PI / 180;
+
     currentSegments.forEach((seg, idx) => {
         const r1 = seg.d1 / 2, r2 = seg.d2 / 2;
         const geom = new THREE.CylinderGeometry(r2, r1, seg.l, 32);
@@ -709,10 +775,14 @@ function render3DPipe() {
         pos.add(dir.clone().multiplyScalar(seg.l));
 
         if (seg.turnAngle > 0) {
-            const turnRad = (seg.turnAngle * Math.PI / 180);
+            // 修正：使用 let 允許修改旋轉方向數值
+            let turnRad = (seg.turnAngle * Math.PI / 180);
             let axis = new THREE.Vector3(0, 0, 1);
 
-            if (seg.turnAxis === 'y') {
+            if (seg.turnAxis === 'header') {
+                // 頭段繞軸心旋轉（扭轉角）
+                axis = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(1, 0, 0), twistRad);
+            } else if (seg.turnAxis === 'y') {
                 axis = new THREE.Vector3(0, 1, 0);
                 if (seg.bellyDir === 'left') turnRad *= -1;
             } else {
