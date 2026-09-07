@@ -574,7 +574,7 @@ function triggerPrint() {
     setTimeout(() => { window.print(); }, 200);
 }
 
-// 3D 視圖初始化 (包含全功能 OrbitControls 平移控制)
+// 3D 視圖初始化 (支援拖曳平移、旋轉、縮放與手勢)
 function init3D() {
     const container = document.getElementById('container3D');
     scene3D = new THREE.Scene();
@@ -588,27 +588,25 @@ function init3D() {
     renderer3D.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer3D.domElement);
 
-    // 核心: 配置 OrbitControls 支援平移與多點觸控
     controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
     controls3D.enableDamping = true;
     controls3D.dampingFactor = 0.05;
     
     // 啟用與設定平移功能
-    controls3D.enablePan = true;            // 啟用上下左右平移
-    controls3D.panSpeed = 1.2;              // 平移靈敏度
-    controls3D.screenSpacePanning = true;   // 螢幕空間對齊平移 (直覺上下左右移動)
+    controls3D.enablePan = true;
+    controls3D.panSpeed = 1.2;
+    controls3D.screenSpacePanning = true;
 
-    // 設定滑鼠按鍵綁定
+    // 滑鼠與觸控按鍵配置
     controls3D.mouseButtons = {
-        LEFT: THREE.MOUSE.ROTATE,           // 滑鼠左鍵：旋轉
-        MIDDLE: THREE.MOUSE.DOLLY,          // 滑鼠中鍵滾輪：縮放
-        RIGHT: THREE.MOUSE.PAN              // 滑鼠右鍵：平移
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN
     };
 
-    // 設定觸控手勢 (支援手機與平板)
     controls3D.touches = {
-        ONE: THREE.TOUCH.ROTATE,            // 單指：旋轉
-        TWO: THREE.TOUCH.DOLLY_PAN          // 雙指：縮放與平移
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
     };
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
@@ -765,11 +763,11 @@ function recalc() {
     updateCharts(rpm, cc);
 }
 
-// 渲染 3D 模型（劃分列印主體與消音器預覽模型）
+// 渲染 3D 模型（採用「局部座標系 (Local Frame)」修正彎曲軸向方向錯亂問題）
 function render3DPipe(silL, silD) {
     if(!pipeGroup3D || !previewTailGroup3D) return;
 
-    // 清空舊模型
+    // 清空舊 3D 模型
     while(pipeGroup3D.children.length > 0) {
         const obj = pipeGroup3D.children[0];
         if(obj.geometry) obj.geometry.dispose();
@@ -782,34 +780,54 @@ function render3DPipe(silL, silD) {
     }
 
     const titaniumColors = [0x38bdf8, 0x8b5cf6, 0xec4899, 0xf59e0b, 0x10b981];
-    let pos = new THREE.Vector3(0,0,0);
-    let dir = new THREE.Vector3(1,0,0);
 
+    // 初始化局部座標系 Frame
+    let pos = new THREE.Vector3(0, 0, 0);
+    let forward = new THREE.Vector3(1, 0, 0); // 沿 X 軸向前
+    let up = new THREE.Vector3(0, 1, 0);      // 局部 Up (+Y)
+    let right = new THREE.Vector3(0, 0, 1);   // 局部 Right (+Z)
+
+    // 依頭段扭轉角度調整 Up 與 Right 向量
     const twistAngle = parseFloat(document.getElementById('twistInput')?.value || 0);
     const twistRad = twistAngle * Math.PI / 180;
+    up.applyAxisAngle(forward, twistRad);
+    right.applyAxisAngle(forward, twistRad);
 
-    // 1. 繪製可列印排氣管主體
+    // 逐段繪製主管路
     currentSegments.forEach((seg, idx) => {
         const r1 = seg.d1 / 2, r2 = seg.d2 / 2;
         const segLen = seg.l;
 
         let turnRad = (seg.turnAngle * Math.PI / 180);
-        let axis = new THREE.Vector3(0, 0, 1);
+        let rotAxis = new THREE.Vector3();
+        let shouldRotate = seg.turnAngle > 0;
 
-        if (seg.turnAxis === 'header') {
-            turnRad = -Math.abs(turnRad);
-            axis = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(1, 0, 0), twistRad);
-        } else if (seg.turnAxis === 'y') {
-            axis = new THREE.Vector3(0, 1, 0);
-            if (seg.bellyDir === 'left') turnRad = Math.abs(turnRad);
-            else if (seg.bellyDir === 'right') turnRad = -Math.abs(turnRad);
-        } else if (seg.turnAxis === 'z') {
-            axis = new THREE.Vector3(0, 0, 1);
-            if (seg.bellyDir === 'up') turnRad = Math.abs(turnRad);
-            else if (seg.bellyDir === 'down') turnRad = -Math.abs(turnRad);
+        if (shouldRotate) {
+            if (seg.turnAxis === 'header') {
+                rotAxis.copy(right);
+                turnRad = -turnRad; // 頭段向下彎曲
+            } else {
+                // 膨脹室對應局部座標系旋轉
+                if (seg.bellyDir === 'up') {
+                    rotAxis.copy(right);
+                    turnRad = turnRad;      // 向上 (+Y)
+                } else if (seg.bellyDir === 'down') {
+                    rotAxis.copy(right);
+                    turnRad = -turnRad;     // 向下 (-Y)
+                } else if (seg.bellyDir === 'left') {
+                    rotAxis.copy(up);
+                    turnRad = turnRad;      // 向左 (-Z)
+                } else if (seg.bellyDir === 'right') {
+                    rotAxis.copy(up);
+                    turnRad = -turnRad;     // 向右 (+Z)
+                }
+            }
+
+            // 前半段轉向
+            forward.applyAxisAngle(rotAxis, turnRad / 2);
+            up.applyAxisAngle(rotAxis, turnRad / 2);
+            right.applyAxisAngle(rotAxis, turnRad / 2);
         }
-
-        if (seg.turnAngle > 0) dir.applyAxisAngle(axis, turnRad / 2);
 
         const geom = new THREE.CylinderGeometry(r2, r1, segLen, 32);
         geom.translate(0, segLen / 2, 0);
@@ -824,17 +842,22 @@ function render3DPipe(silL, silD) {
         const segGroup = new THREE.Group();
         segGroup.position.copy(pos);
 
-        const q = new THREE.Quaternion();
-        q.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+        const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), forward);
         segGroup.quaternion.copy(q);
         segGroup.add(mesh);
         pipeGroup3D.add(segGroup);
 
-        pos.add(dir.clone().multiplyScalar(segLen));
-        if (seg.turnAngle > 0) dir.applyAxisAngle(axis, turnRad / 2);
+        pos.add(forward.clone().multiplyScalar(segLen));
+
+        // 後半段轉向 (平滑銜接)
+        if (shouldRotate) {
+            forward.applyAxisAngle(rotAxis, turnRad / 2);
+            up.applyAxisAngle(rotAxis, turnRad / 2);
+            right.applyAxisAngle(rotAxis, turnRad / 2);
+        }
     });
 
-    // 2. 繪製僅供視覺預覽的消音尾段（透明灰，不參與展開與匯出）
+    // 繪製非列印虛擬尾段消音器
     if(silL && silD) {
         const silGeom = new THREE.CylinderGeometry(silD * 1.5, silD * 1.5, silL, 32);
         silGeom.translate(0, silL / 2, 0);
@@ -845,14 +868,13 @@ function render3DPipe(silL, silD) {
         const silGroup = new THREE.Group();
         silGroup.position.copy(pos);
 
-        const qSil = new THREE.Quaternion();
-        qSil.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+        const qSil = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), forward);
         silGroup.quaternion.copy(qSil);
         silGroup.add(silMesh);
         previewTailGroup3D.add(silGroup);
     }
 
-    // 居中對齊
+    // 將模型置中
     const bbox = new THREE.Box3().setFromObject(pipeGroup3D);
     const center = new THREE.Vector3();
     bbox.getCenter(center);
