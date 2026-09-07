@@ -135,9 +135,7 @@
             color: var(--accent);
         }
         .btn-outline:hover { background: var(--accent); color: #fff; }
-        .btn-active { background: #0284c7 !important; color: #fff !important; }
 
-        /* 3D 視圖外框與純白背景設定 */
         .container-3d-wrapper {
             position: relative;
             background: #ffffff;
@@ -328,7 +326,19 @@
                 </div>
 
                 <div class="input-field">
-                    <label>中性層係數 K-Factor (預設 0.44)</label>
+                    <label>材質與加工選單 (套用 K-Factor)</label>
+                    <select id="kPresetSelect" onchange="applyKPreset(this.value)">
+                        <option value="custom">自訂 K-Factor 數值</option>
+                        <option value="0.44" selected>冷軋低碳鋼/鐵板 (0.44 - 手工捲圓)</option>
+                        <option value="0.46">不銹鋼 SUS304 (0.46 - 捲管伸長微調)</option>
+                        <option value="0.40">鈦合金 Titanium (0.40 - 高彈回彈)</option>
+                        <option value="0.39">鋁合金 5052/6061 (0.39 - 軟質折彎)</option>
+                        <option value="0.47">三輪滾圓機錐管加工 (0.47)</option>
+                    </select>
+                </div>
+
+                <div class="input-field">
+                    <label>中性層係數 K-Factor</label>
                     <div class="slider-row">
                         <input type="range" id="kFactorSlider" min="0.2" max="0.5" step="0.01" value="0.44" oninput="syncVal('kFactor', this.value)">
                         <input type="number" id="kFactorInput" class="num-input" value="0.44" step="0.01" onchange="syncVal('kFactor', this.value)">
@@ -450,13 +460,12 @@
                 <div class="container-3d-wrapper">
                     <div class="toolbar-3d">
                         <button class="btn btn-outline" id="heatTintBtn" onclick="toggleHeatTint()">🔥 鈦合金燒色: 開</button>
-                        <button class="btn btn-outline" id="mockupBtn" onclick="toggleMockup()">🏍️ 車架氣缸參考: 開</button>
                         <button class="btn btn-outline" onclick="toggleAutoRotate()">🔄 自動旋轉</button>
                         <button class="btn btn-outline" onclick="toggleWireframe()">📐 結構線框</button>
                         <button class="btn btn-outline" onclick="resetCamera()">🎯 重置視角</button>
                     </div>
                     <div id="container3D"></div>
-                    <div class="hint-text">💡 操控提示：左鍵旋轉 | 右鍵平移 | 滾輪縮放 (具備焊縫鈦燒色與實體車架擬真)</div>
+                    <div class="hint-text">💡 操控提示：左鍵旋轉 | 右鍵平移 | 滾輪縮放 (具備焊縫鈦燒色與多段漸擴錐展示)</div>
                 </div>
             </div>
 
@@ -538,8 +547,8 @@
 </div>
 
 <script>
-let scene3D, camera3D, renderer3D, controls3D, pipeGroup3D, previewTailGroup3D, frameMockupGroup3D;
-let isAutoRotate = false, isWireframe = false, isHeatTint = true, isShowMockup = true;
+let scene3D, camera3D, renderer3D, controls3D, pipeGroup3D, previewTailGroup3D;
+let isAutoRotate = false, isWireframe = false, isHeatTint = true;
 let hpChartInst = null, waveChartInst = null;
 let currentSegments = [];
 
@@ -548,6 +557,12 @@ let flowCanvas2D, flowCtx2D;
 let flowParticles2D = [];
 let showWavePulse = true;
 let flowAnimFrameId = null;
+
+function applyKPreset(val) {
+    if(val !== 'custom') {
+        syncVal('kFactor', val);
+    }
+}
 
 function saveConfig() {
     const config = {
@@ -658,47 +673,11 @@ function init3D() {
 
     pipeGroup3D = new THREE.Group();
     previewTailGroup3D = new THREE.Group();
-    frameMockupGroup3D = new THREE.Group();
 
     scene3D.add(pipeGroup3D);
     scene3D.add(previewTailGroup3D);
-    scene3D.add(frameMockupGroup3D);
 
-    buildFrameMockup();
     animate3D();
-}
-
-// 建立 3D 車架與氣缸參考體
-function buildFrameMockup() {
-    while(frameMockupGroup3D.children.length > 0) {
-        const obj = frameMockupGroup3D.children[0];
-        if(obj.geometry) obj.geometry.dispose();
-        frameMockupGroup3D.remove(obj);
-    }
-
-    // 氣缸主體
-    const cylGeom = new THREE.CylinderGeometry(40, 40, 80, 24);
-    const cylMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.5, roughness: 0.5, transparent: true, opacity: 0.6 });
-    const cylMesh = new THREE.Mesh(cylGeom, cylMat);
-    cylMesh.position.set(-15, 30, 0);
-
-    // 排氣口法蘭 (Port Flange)
-    const flangeGeom = new THREE.CylinderGeometry(24, 24, 12, 24);
-    flangeGeom.rotateZ(Math.PI / 2);
-    const flangeMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.2 });
-    const flangeMesh = new THREE.Mesh(flangeGeom, flangeMat);
-    flangeMesh.position.set(-6, 0, 0);
-
-    // 下車架鋼管 Mockup
-    const frameGeom = new THREE.CylinderGeometry(14, 14, 280, 16);
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.4, roughness: 0.6, transparent: true, opacity: 0.5 });
-    const frameMesh = new THREE.Mesh(frameGeom, frameMat);
-    frameMesh.position.set(-45, -40, 0);
-    frameMesh.rotation.z = -Math.PI / 6;
-
-    frameMockupGroup3D.add(cylMesh);
-    frameMockupGroup3D.add(flangeMesh);
-    frameMockupGroup3D.add(frameMesh);
 }
 
 function toggleAutoRotate() { isAutoRotate = !isAutoRotate; }
@@ -707,11 +686,6 @@ function toggleHeatTint() {
     isHeatTint = !isHeatTint;
     document.getElementById('heatTintBtn').innerText = `🔥 鈦合金燒色: ${isHeatTint ? '開' : '關'}`;
     render3DPipe();
-}
-function toggleMockup() {
-    isShowMockup = !isShowMockup;
-    document.getElementById('mockupBtn').innerText = `🏍️ 車架氣缸參考: ${isShowMockup ? '開' : '關'}`;
-    frameMockupGroup3D.visible = isShowMockup;
 }
 
 function resetCamera() { 
@@ -728,7 +702,6 @@ function animate3D() {
     if(isAutoRotate && pipeGroup3D) {
         pipeGroup3D.rotation.y += 0.005;
         previewTailGroup3D.rotation.y += 0.005;
-        frameMockupGroup3D.rotation.y += 0.005;
     }
     if(renderer3D && scene3D && camera3D) renderer3D.render(scene3D, camera3D);
 }
@@ -931,17 +904,15 @@ function createSeamfreePipeGeometry(nodes, radii, radialSegments = 32) {
         const ringColors = [];
         const dot = miterDir.dot(currentDir);
         
-        // 鈦合金高溫燒色色彩計算
-        let color = new THREE.Color(0x0284c7); // 預設鈦藍色
+        let color = new THREE.Color(0x0284c7);
         if (isHeatTint) {
             if (i < numNodes * 0.4) {
-                // 頭段與擴散段高溫區：黃金 -> 紫色 -> 湛藍
                 const alpha = i / (numNodes * 0.4);
-                if (i % 2 === 0) color.setHSL(0.58, 0.9, 0.55); // 焊縫湛藍
-                else if (alpha < 0.3) color.setHSL(0.12, 0.85, 0.5); // 銅黃
-                else color.setHSL(0.75, 0.8, 0.5); // 炫彩紫
+                if (i % 2 === 0) color.setHSL(0.58, 0.9, 0.55);
+                else if (alpha < 0.3) color.setHSL(0.12, 0.85, 0.5);
+                else color.setHSL(0.75, 0.8, 0.5);
             } else {
-                color.setHSL(0.55, 0.6, 0.6); // 尾段鈦金屬原色
+                color.setHSL(0.55, 0.6, 0.6);
             }
         }
 
@@ -1212,7 +1183,7 @@ function animate2DFlow() {
     }
 }
 
-// 渲染帶有紅色對齊點 (Alignment Marks) 的 2D SVG 展開圖
+// 渲染 2D SVG 展開圖
 function renderUnfoldSVGs() {
     const container = document.getElementById('svgContainer');
     container.innerHTML = '';
@@ -1261,7 +1232,6 @@ function renderUnfoldSVGs() {
 
             const pathD = `M ${botPts.join(' L ')} L ${topPts.reverse().join(' L ')} Z`;
 
-            // 手工焊接 180° 對齊記號 (Alignment Notches)
             const alignMarks = `
                 <line x1="${midBotX}" y1="${midBotY}" x2="${midBotX}" y2="${midBotY + 8}" stroke="${markColor}" stroke-width="2"/>
                 <line x1="${midTopX}" y1="${midTopY}" x2="${midTopX}" y2="${midTopY - 8}" stroke="${markColor}" stroke-width="2"/>
@@ -1312,7 +1282,6 @@ function renderUnfoldSVGs() {
             const largeArc = phi > Math.PI ? 1 : 0;
             const pathD = `M ${outPts[0]} A ${Rout.toFixed(2)} ${Rout.toFixed(2)} 0 ${largeArc} 1 ${outPts[outPts.length-1]} L ${inPts[inPts.length-1]} A ${Rin.toFixed(2)} ${Rin.toFixed(2)} 0 ${largeArc} 0 ${inPts[0]} Z`;
 
-            // 中心線上對齊刻度
             const midX_out = Cx, midY_out = Cy + Rout;
             const midX_in = Cx, midY_in = Cy + Rin;
             const alignMarks = `
@@ -1406,7 +1375,6 @@ function updateCharts(targetRpm, cc, diffuserType) {
     let maxHp = 0, maxHpRpm = 0, maxTq = 0, maxTqRpm = 0;
     const basePowerCoeff = (cc / 136) * 1.35;
     
-    // 三段擴散錐擴寬 Powerband (帶寬從 0.16 增加至 0.25)
     const bandWidth = (diffuserType === 'multi') ? 0.25 : 0.16;
 
     for(let r = minRpm; r <= maxRpm; r += stepRpm) {
