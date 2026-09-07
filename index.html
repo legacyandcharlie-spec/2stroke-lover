@@ -142,7 +142,8 @@
             height: 480px;
             overflow: hidden;
         }
-        #container3D { width: 100%; height: 100%; }
+        #container3D { width: 100%; height: 100%; cursor: grab; }
+        #container3D:active { cursor: grabbing; }
 
         .toolbar-3d {
             position: absolute;
@@ -150,22 +151,6 @@
             display: flex; gap: 6px; z-index: 10;
             background: rgba(0, 0, 0, 0.5);
             padding: 6px; border-radius: 6px; backdrop-filter: blur(4px);
-        }
-
-        .chart-header-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-
-        .chart-container {
-            position: relative;
-            background: var(--panel-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px;
-            height: 230px;
         }
 
         .tab-bar { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
@@ -245,30 +230,23 @@
         .stat-label { font-size: 0.75rem; color: var(--text-sub); }
         .stat-val { font-size: 1rem; font-weight: bold; color: var(--accent); margin-top: 2px; }
 
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(5px);
-            z-index: 9999; display: flex; align-items: center; justify-content: center;
+        .hint-text {
+            position: absolute;
+            bottom: 8px; left: 8px;
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            background: rgba(0,0,0,0.6);
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
         }
-        .modal-content {
-            background: var(--panel); border: 1px solid var(--border);
-            border-radius: 12px; width: 92%; max-width: 1100px; padding: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        }
-        .modal-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px;
-        }
-
-        .print-only { display: none; }
 
         @media print {
             body { background: #fff !important; color: #000 !important; padding: 0 !important; }
-            .no-print, header, .header-actions, .grid-layout > .card:first-child, .tab-bar, .toolbar-3d, #tab3D, #tabFlow2D, #tabSim, .modal-overlay { display: none !important; }
+            .no-print, header, .header-actions, .grid-layout > .card:first-child, .tab-bar, .toolbar-3d, #tab3D, #tabFlow2D, #tabSim { display: none !important; }
             .grid-layout { display: block !important; }
             .card { border: none !important; box-shadow: none !important; padding: 0 !important; background: transparent !important; }
             .tab-content { display: block !important; }
-            .print-only { display: block !important; }
             .svg-container { background: #fff !important; border: none !important; padding: 0 !important; overflow: visible !important; }
             .unfold-item { page-break-inside: avoid; border-bottom: 1px stroke #666 !important; margin-bottom: 15mm; }
             svg { stroke: #000 !important; fill: none !important; }
@@ -393,7 +371,7 @@
                 </div>
             </div>
 
-            <div class="section-title">尾段消音器 (Silencer)</div>
+            <div class="section-title">尾段消音器預覽 (僅供預覽，不寫入展開圖)</div>
             <div class="input-group">
                 <div class="input-field">
                     <label>消音器長度 (Length)</label>
@@ -425,11 +403,12 @@
             <div id="tab3D" class="tab-content active">
                 <div class="container-3d-wrapper">
                     <div class="toolbar-3d">
-                        <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem;" onclick="toggleAutoRotate()">🔄 旋轉</button>
+                        <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem;" onclick="toggleAutoRotate()">🔄 自動旋轉</button>
                         <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem;" onclick="toggleWireframe()">📐 半透明線框</button>
-                        <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem;" onclick="resetCamera()">🎯 置中</button>
+                        <button class="btn btn-outline" style="padding:4px 8px; font-size:0.75rem;" onclick="resetCamera()">🎯 重置視角</button>
                     </div>
                     <div id="container3D"></div>
+                    <div class="hint-text">💡 操控提示：左鍵旋轉 | 右鍵/Shift+左鍵平移 | 滾輪縮放 | 雙指拖曳平移</div>
                 </div>
             </div>
 
@@ -470,29 +449,21 @@
             <div id="tabSim" class="tab-content">
                 <div style="display:flex; flex-direction:column; gap:16px;">
                     <div>
-                        <div class="chart-header-row">
-                            <div style="font-size:0.85rem; font-weight:bold; color:var(--accent);">預估馬力與扭力輸出曲線 (HP & Torque vs RPM)</div>
-                            <button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; min-height:28px;" onclick="openChartModal()">🔍 放大檢視</button>
-                        </div>
+                        <div style="font-size:0.85rem; font-weight:bold; color:var(--accent); margin-bottom:6px;">預估馬力與扭力輸出曲線 (HP & Torque vs RPM)</div>
                         <div id="peakInfoTag" style="font-size:0.78rem; color:var(--text-sub); margin-bottom:6px;"></div>
-                        <div class="chart-container"><canvas id="hpChart"></canvas></div>
+                        <div style="height:230px;"><canvas id="hpChart"></canvas></div>
                     </div>
                     <div>
                         <div style="font-size:0.85rem; font-weight:bold; margin-bottom:6px; color:var(--accent);">排氣門端壓力波形脈衝 (Exhaust Pressure Wave Pulse - kPa)</div>
-                        <div class="chart-container"><canvas id="waveChart"></canvas></div>
+                        <div style="height:230px;"><canvas id="waveChart"></canvas></div>
                     </div>
                 </div>
             </div>
 
             <!-- Tab 4: 2D 1:1 展開圖與數據表格 -->
             <div id="tabFlat" class="tab-content">
-                <div class="print-only" style="margin-bottom:15px; border-bottom:2px solid #000; padding-bottom:10px;">
-                    <h2>2T 競技排氣管 1:1 圖紙展開圖 (請使用實際大小 / 100% 比例輸出)</h2>
-                    <p id="printHeaderInfo" style="font-size:12px;"></p>
-                </div>
-
                 <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <span style="font-size:0.82rem; color:var(--text-sub);">💡 展開圖支援任意紙張（A4 / A3 / 繪圖機捲筒紙），請在列印時選擇「實際大小 (100%)」。</span>
+                    <span style="font-size:0.82rem; color:var(--text-sub);">💡 展開圖僅包含可製作的主管路（消音尾段不列入列印展開圖中）。</span>
                     <button class="btn btn-outline" onclick="triggerPrint()">🖨️ 列印 1:1 展開圖</button>
                 </div>
 
@@ -518,23 +489,10 @@
     </div>
 </div>
 
-<!-- 馬力圖放大 Modal -->
-<div id="chartModal" class="modal-overlay" style="display:none;">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 style="margin:0; font-size:1.05rem; color:var(--accent);">馬力與扭力輸出曲線 (放大檢視)</h3>
-            <button class="btn btn-outline" style="padding:4px 10px; min-height:30px;" onclick="closeChartModal()">✕ 關閉</button>
-        </div>
-        <div style="height: 520px; position: relative;">
-            <canvas id="hpChartModalCanvas"></canvas>
-        </div>
-    </div>
-</div>
-
 <script>
-let scene3D, camera3D, renderer3D, controls3D, pipeGroup3D;
-let isAutoRotate = true, isWireframe = false;
-let hpChartInst = null, waveChartInst = null, hpChartModalInst = null;
+let scene3D, camera3D, renderer3D, controls3D, pipeGroup3D, previewTailGroup3D;
+let isAutoRotate = false, isWireframe = false;
+let hpChartInst = null, waveChartInst = null;
 let currentSegments = [];
 
 // 2D 氣流模擬變數
@@ -596,7 +554,6 @@ function toggleTheme() {
     const next = current === 'dark' ? 'light' : 'dark';
     html.setAttribute('data-theme', next);
     document.getElementById('themeBtn').innerText = next === 'dark' ? '🌙 深色模式' : '☀️ 淺色模式';
-    if(hpChartInst) updateChartColors();
 }
 
 function switchTab(tabId) {
@@ -604,9 +561,6 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     event.target.classList.add('active');
     document.getElementById(tabId).classList.add('active');
-    if(tabId === 'tabSim') {
-        setTimeout(() => { hpChartInst?.resize(); waveChartInst?.resize(); }, 50);
-    }
 }
 
 function syncVal(key, val) {
@@ -620,7 +574,7 @@ function triggerPrint() {
     setTimeout(() => { window.print(); }, 200);
 }
 
-// 3D 視圖初始化
+// 3D 視圖初始化 (包含全功能 OrbitControls 平移控制)
 function init3D() {
     const container = document.getElementById('container3D');
     scene3D = new THREE.Scene();
@@ -634,8 +588,28 @@ function init3D() {
     renderer3D.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer3D.domElement);
 
+    // 核心: 配置 OrbitControls 支援平移與多點觸控
     controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
     controls3D.enableDamping = true;
+    controls3D.dampingFactor = 0.05;
+    
+    // 啟用與設定平移功能
+    controls3D.enablePan = true;            // 啟用上下左右平移
+    controls3D.panSpeed = 1.2;              // 平移靈敏度
+    controls3D.screenSpacePanning = true;   // 螢幕空間對齊平移 (直覺上下左右移動)
+
+    // 設定滑鼠按鍵綁定
+    controls3D.mouseButtons = {
+        LEFT: THREE.MOUSE.ROTATE,           // 滑鼠左鍵：旋轉
+        MIDDLE: THREE.MOUSE.DOLLY,          // 滑鼠中鍵滾輪：縮放
+        RIGHT: THREE.MOUSE.PAN              // 滑鼠右鍵：平移
+    };
+
+    // 設定觸控手勢 (支援手機與平板)
+    controls3D.touches = {
+        ONE: THREE.TOUCH.ROTATE,            // 單指：旋轉
+        TWO: THREE.TOUCH.DOLLY_PAN          // 雙指：縮放與平移
+    };
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene3D.add(ambientLight);
@@ -644,19 +618,30 @@ function init3D() {
     scene3D.add(dirLight);
 
     pipeGroup3D = new THREE.Group();
+    previewTailGroup3D = new THREE.Group();
     scene3D.add(pipeGroup3D);
+    scene3D.add(previewTailGroup3D);
 
     animate3D();
 }
 
 function toggleAutoRotate() { isAutoRotate = !isAutoRotate; }
 function toggleWireframe() { isWireframe = !isWireframe; render3DPipe(); }
-function resetCamera() { if(pipeGroup3D) pipeGroup3D.rotation.set(0,0,0); }
+function resetCamera() { 
+    if(controls3D) {
+        controls3D.reset();
+        camera3D.position.set(220, 160, 420);
+        controls3D.target.set(0, 0, 0);
+    }
+}
 
 function animate3D() {
     requestAnimationFrame(animate3D);
     if(controls3D) controls3D.update();
-    if(isAutoRotate && pipeGroup3D) pipeGroup3D.rotation.y += 0.005;
+    if(isAutoRotate && pipeGroup3D) {
+        pipeGroup3D.rotation.y += 0.005;
+        previewTailGroup3D.rotation.y += 0.005;
+    }
     if(renderer3D && scene3D && camera3D) renderer3D.render(scene3D, camera3D);
 }
 
@@ -664,7 +649,6 @@ function animate3D() {
 function recalc() {
     const bore = parseFloat(document.getElementById('boreInput').value);
     const stroke = parseFloat(document.getElementById('strokeInput').value);
-
     const cc = (Math.PI / 4) * Math.pow(bore / 10, 2) * (stroke / 10);
     document.getElementById('calcCCDisplay').innerText = cc.toFixed(1);
 
@@ -694,9 +678,9 @@ function recalc() {
 
     currentSegments = [];
 
-    // 1. 頭段蝦殼彎節 (修正長度與幾何切角計算，確保總長度不爆開)
+    // 1. 頭段蝦殼彎節
     if (bendAngle > 0 && bendCuts > 0) {
-        const subL = totalHeaderL / bendCuts; // 均分總頭段長度
+        const subL = totalHeaderL / bendCuts;
         const miterAngleDeg = bendAngle / (2 * bendCuts);
         const betaRad = (miterAngleDeg * Math.PI) / 180;
 
@@ -711,10 +695,8 @@ function recalc() {
                 name: `1-${i+1}. 蝦殼彎節 ${i+1}/${bendCuts}`,
                 l: subL, d1: d1, d2: d2,
                 beta1: miterAngleDeg, beta2: miterAngleDeg,
-                turnAngle: bendAngle / bendCuts,
-                turnAxis: 'header',
-                info: `長度 ${subL.toFixed(1)}mm | 周長 ${circ.toFixed(1)}mm (正弦落差 ${hDiff.toFixed(1)}mm)`,
-                isBend: true
+                turnAngle: bendAngle / bendCuts, turnAxis: 'header',
+                info: `長度 ${subL.toFixed(1)}mm | 周長 ${circ.toFixed(1)}mm (正弦落差 ${hDiff.toFixed(1)}mm)`
             });
         }
     } else {
@@ -770,13 +752,6 @@ function recalc() {
         info: `長度 ${(stingerD * 10).toFixed(1)}mm | 口徑 Ø${stingerD.toFixed(1)}`
     });
 
-    // 6. 消音器
-    currentSegments.push({
-        name: "6. 消音器 (Silencer)", l: silL, d1: silD, d2: silD,
-        beta1: 0, beta2: 0, turnAngle: 0, isSilencer: true,
-        info: `長度 ${silL.toFixed(1)}mm | 內徑 Ø${silD.toFixed(1)}`
-    });
-
     const backpressure = (0.00002 * Math.pow(rpm, 1.3) * (silL / Math.pow(silD, 2))).toFixed(2);
 
     document.getElementById('summaryBox').innerHTML = `
@@ -784,30 +759,36 @@ function recalc() {
         • 廢氣聲速: <b>${soundSpeed.toFixed(1)} m/s</b> | 諧振長: <b>${tunedLength.toFixed(1)} mm</b> | 預估背壓: <b>${backpressure} kPa</b>
     `;
 
-    document.getElementById('printHeaderInfo').innerText = `缸徑: ${bore}mm | 行程: ${stroke}mm | 排氣量: ${cc.toFixed(1)}cc | 目標轉速: ${rpm}RPM | 諧振長: ${tunedLength.toFixed(1)}mm`;
-
-    render3DPipe();
+    render3DPipe(silL, silD);
     renderUnfoldSVGs();
     renderTable();
-    updateCharts(rpm, tunedLength, soundSpeed, cc);
+    updateCharts(rpm, cc);
 }
 
-// 渲染 3D 幾何模型 (修正角平分線疊加與 Up/Down 正負向旋轉)
-function render3DPipe() {
-    if(!pipeGroup3D) return;
+// 渲染 3D 模型（劃分列印主體與消音器預覽模型）
+function render3DPipe(silL, silD) {
+    if(!pipeGroup3D || !previewTailGroup3D) return;
+
+    // 清空舊模型
     while(pipeGroup3D.children.length > 0) {
         const obj = pipeGroup3D.children[0];
         if(obj.geometry) obj.geometry.dispose();
         pipeGroup3D.remove(obj);
     }
+    while(previewTailGroup3D.children.length > 0) {
+        const obj = previewTailGroup3D.children[0];
+        if(obj.geometry) obj.geometry.dispose();
+        previewTailGroup3D.remove(obj);
+    }
 
-    const titaniumColors = [0x38bdf8, 0x8b5cf6, 0xec4899, 0xf59e0b, 0x10b981, 0x0284c7];
+    const titaniumColors = [0x38bdf8, 0x8b5cf6, 0xec4899, 0xf59e0b, 0x10b981];
     let pos = new THREE.Vector3(0,0,0);
     let dir = new THREE.Vector3(1,0,0);
 
     const twistAngle = parseFloat(document.getElementById('twistInput')?.value || 0);
     const twistRad = twistAngle * Math.PI / 180;
 
+    // 1. 繪製可列印排氣管主體
     currentSegments.forEach((seg, idx) => {
         const r1 = seg.d1 / 2, r2 = seg.d2 / 2;
         const segLen = seg.l;
@@ -816,7 +797,7 @@ function render3DPipe() {
         let axis = new THREE.Vector3(0, 0, 1);
 
         if (seg.turnAxis === 'header') {
-            turnRad = -Math.abs(turnRad); // 頭段向下衝
+            turnRad = -Math.abs(turnRad);
             axis = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(1, 0, 0), twistRad);
         } else if (seg.turnAxis === 'y') {
             axis = new THREE.Vector3(0, 1, 0);
@@ -824,25 +805,19 @@ function render3DPipe() {
             else if (seg.bellyDir === 'right') turnRad = -Math.abs(turnRad);
         } else if (seg.turnAxis === 'z') {
             axis = new THREE.Vector3(0, 0, 1);
-            // 修正上下方向：up => 正Y軸向上；down => 負Y軸向下
             if (seg.bellyDir === 'up') turnRad = Math.abs(turnRad);
             else if (seg.bellyDir === 'down') turnRad = -Math.abs(turnRad);
         }
 
-        // 蝦殼/切角前置半轉角（確保管件對接面平滑）
-        if (seg.turnAngle > 0) {
-            dir.applyAxisAngle(axis, turnRad / 2);
-        }
+        if (seg.turnAngle > 0) dir.applyAxisAngle(axis, turnRad / 2);
 
         const geom = new THREE.CylinderGeometry(r2, r1, segLen, 32);
         geom.translate(0, segLen / 2, 0);
 
         const mat = new THREE.MeshStandardMaterial({
-            color: isWireframe ? 0x38bdf8 : (seg.isSilencer ? 0x94a3b8 : titaniumColors[idx % titaniumColors.length]),
+            color: isWireframe ? 0x38bdf8 : titaniumColors[idx % titaniumColors.length],
             metalness: 0.85, roughness: 0.25,
-            wireframe: isWireframe,
-            transparent: isWireframe,
-            opacity: isWireframe ? 0.4 : 0.92
+            wireframe: isWireframe, transparent: isWireframe, opacity: isWireframe ? 0.4 : 0.92
         });
 
         const mesh = new THREE.Mesh(geom, mat);
@@ -856,20 +831,36 @@ function render3DPipe() {
         pipeGroup3D.add(segGroup);
 
         pos.add(dir.clone().multiplyScalar(segLen));
-
-        // 蝦殼/切角後置半轉角
-        if (seg.turnAngle > 0) {
-            dir.applyAxisAngle(axis, turnRad / 2);
-        }
+        if (seg.turnAngle > 0) dir.applyAxisAngle(axis, turnRad / 2);
     });
 
+    // 2. 繪製僅供視覺預覽的消音尾段（透明灰，不參與展開與匯出）
+    if(silL && silD) {
+        const silGeom = new THREE.CylinderGeometry(silD * 1.5, silD * 1.5, silL, 32);
+        silGeom.translate(0, silL / 2, 0);
+        const silMat = new THREE.MeshStandardMaterial({
+            color: 0x94a3b8, transparent: true, opacity: 0.45, roughness: 0.3
+        });
+        const silMesh = new THREE.Mesh(silGeom, silMat);
+        const silGroup = new THREE.Group();
+        silGroup.position.copy(pos);
+
+        const qSil = new THREE.Quaternion();
+        qSil.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+        silGroup.quaternion.copy(qSil);
+        silGroup.add(silMesh);
+        previewTailGroup3D.add(silGroup);
+    }
+
+    // 居中對齊
     const bbox = new THREE.Box3().setFromObject(pipeGroup3D);
     const center = new THREE.Vector3();
     bbox.getCenter(center);
     pipeGroup3D.position.sub(center);
+    previewTailGroup3D.position.sub(center);
 }
 
-// 2D 獨立氣流與聲波模擬器
+// 2D 氣流模擬
 function init2DFlowSim() {
     flowCanvas2D = document.getElementById('canvas2DFlow');
     if(!flowCanvas2D) return;
@@ -884,7 +875,6 @@ function init2DFlowSim() {
             size: 2.2 + Math.random() * 1.5
         });
     }
-
     if(!flowAnimFrameId) animate2DFlow();
 }
 
@@ -894,16 +884,14 @@ function animate2DFlow() {
     flowAnimFrameId = requestAnimationFrame(animate2DFlow);
     if(!flowCanvas2D || !flowCtx2D || currentSegments.length === 0) return;
 
-    const w = flowCanvas2D.width;
-    const h = flowCanvas2D.height;
+    const w = flowCanvas2D.width, h = flowCanvas2D.height;
     flowCtx2D.clearRect(0, 0, w, h);
 
-    // 算出排氣管總長度與各節 2D 座標
     let totalL = currentSegments.reduce((sum, s) => sum + s.l, 0);
     const marginX = 60, marginY = h / 2;
     const drawW = w - 120;
     const scaleX = drawW / totalL;
-    const scaleY = scaleX * 1.35; // 適度放大直徑比例以方便觀察
+    const scaleY = scaleX * 1.35;
 
     let currX = marginX;
     const profilePts = [];
@@ -913,12 +901,10 @@ function animate2DFlow() {
         const x2 = currX + seg.l * scaleX;
         const r1 = (seg.d1 / 2) * scaleY;
         const r2 = (seg.d2 / 2) * scaleY;
-
         profilePts.push({ x1, x2, r1, r2, seg });
         currX = x2;
     });
 
-    // 1. 繪製 2D 排氣管暗色金屬壁與內部背景
     flowCtx2D.fillStyle = "rgba(15, 23, 42, 0.9)";
     flowCtx2D.beginPath();
     flowCtx2D.moveTo(profilePts[0].x1, marginY - profilePts[0].r1);
@@ -930,29 +916,14 @@ function animate2DFlow() {
     flowCtx2D.closePath();
     flowCtx2D.fill();
 
-    // 繪製排氣管輪廓邊線
     flowCtx2D.strokeStyle = "#38bdf8";
     flowCtx2D.lineWidth = 2.5;
     flowCtx2D.stroke();
 
-    // 繪製區段分隔虛線與名稱
-    flowCtx2D.strokeStyle = "rgba(148, 163, 184, 0.25)";
-    flowCtx2D.lineWidth = 1;
-    flowCtx2D.setLineDash([4, 4]);
-    profilePts.forEach(p => {
-        flowCtx2D.beginPath();
-        flowCtx2D.moveTo(p.x2, marginY - p.r2 - 12);
-        flowCtx2D.lineTo(p.x2, marginY + p.r2 + 12);
-        flowCtx2D.stroke();
-    });
-    flowCtx2D.setLineDash([]);
-
-    // 2. 計算與繪製流體動態粒子
     const rpm = parseFloat(document.getElementById('rpmInput').value || 10000);
     const baseSpeed = 0.003 + (rpm / 25000) * 0.007;
 
     flowParticles2D.forEach(p => {
-        // 連續性公式: 速度反比於管徑平方 V ∝ 1/D^2
         const curRealX = p.xNorm * totalL;
         let localD = currentSegments[0].d1;
 
@@ -969,15 +940,12 @@ function animate2DFlow() {
         const headerD = currentSegments[0].d1;
         const velRatio = Math.pow(headerD / localD, 1.8);
         p.xNorm += baseSpeed * velRatio * p.speedMult;
-
         if(p.xNorm > 1.0) p.xNorm -= 1.0;
 
-        // 對應 2D 畫布座標
         const canvasX = marginX + p.xNorm * drawW;
         const halfR = (localD / 2) * scaleY;
         const canvasY = marginY + p.yOffset * halfR * 0.85;
 
-        // 依據速度與溫度塗色 (高速度: 橙紅/黃, 低速度膨脹: 青藍)
         let color = "#38bdf8";
         if(velRatio > 0.8) color = "#ef4444";
         else if(velRatio > 0.4) color = "#f59e0b";
@@ -989,42 +957,21 @@ function animate2DFlow() {
         flowCtx2D.fill();
     });
 
-    // 3. 可選聲波脈衝 Layer (正負壓波形於管內傳遞)
     if(showWavePulse) {
         const time = Date.now() * 0.004;
         flowCtx2D.lineWidth = 2;
         flowCtx2D.beginPath();
-
         for(let px = marginX; px <= marginX + drawW; px += 4) {
             const normX = (px - marginX) / drawW;
             const wave1 = Math.sin(normX * 12 - time) * Math.exp(-Math.pow((normX - 0.4), 2) * 8);
             const wave2 = -Math.sin(normX * 16 + time * 1.2) * 0.6 * (normX > 0.4 ? 1 : 0);
             const waveY = marginY + (wave1 + wave2) * 22;
-
             if(px === marginX) flowCtx2D.moveTo(px, waveY);
             else flowCtx2D.lineTo(px, waveY);
         }
-
         flowCtx2D.strokeStyle = "rgba(245, 158, 11, 0.85)";
         flowCtx2D.stroke();
     }
-
-    // 更新數據顯示卡
-    const egt = parseFloat(document.getElementById('egtInput').value || 620);
-    const soundSpeed = 20.05 * Math.sqrt(273.15 + egt);
-    const hD = currentSegments[0].d1;
-    const bD = currentSegments[2].d1;
-    const sD = currentSegments[4].d1;
-
-    const baseJet = (soundSpeed * 0.18).toFixed(1);
-    const bellyJet = (baseJet * Math.pow(hD/bD, 2)).toFixed(1);
-    const stingerJet = (baseJet * Math.pow(hD/sD, 2)).toFixed(1);
-    const wavePeriod = ((totalL * 2 / soundSpeed)).toFixed(2);
-
-    document.getElementById('statHeaderSpeed').innerText = `${baseJet} m/s`;
-    document.getElementById('statBellySpeed').innerText = `${bellyJet} m/s`;
-    document.getElementById('statStingerSpeed').innerText = `${stingerJet} m/s`;
-    document.getElementById('statWavePeriod').innerText = `${wavePeriod} ms`;
 }
 
 function renderUnfoldSVGs() {
@@ -1077,8 +1024,7 @@ function renderUnfoldSVGs() {
             `;
         } else if (Math.abs(seg.d1 - seg.d2) > 0.5) {
             const rStart = seg.d1 / 2, rEnd = seg.d2 / 2;
-            const rMin = Math.min(rStart, rEnd);
-            const rMax = Math.max(rStart, rEnd);
+            const rMin = Math.min(rStart, rEnd), rMax = Math.max(rStart, rEnd);
             const L = seg.l;
 
             const S = Math.sqrt(L * L + Math.pow(rMax - rMin, 2));
@@ -1142,44 +1088,31 @@ function renderUnfoldSVGs() {
 
 function renderTable() {
     const tbody = document.getElementById('flatTableBody');
-    tbody.innerHTML = currentSegments.map(s => {
-        return `
-            <tr>
-                <td><b>${s.name}</b></td>
-                <td>${s.l.toFixed(1)} mm</td>
-                <td>Ø${s.d1.toFixed(1)}</td>
-                <td>Ø${s.d2.toFixed(1)}</td>
-                <td>${s.beta1.toFixed(1)}° / ${s.beta2.toFixed(1)}°</td>
-                <td>${s.info}</td>
-            </tr>
-        `;
-    }).join('');
+    tbody.innerHTML = currentSegments.map(s => `
+        <tr>
+            <td><b>${s.name}</b></td>
+            <td>${s.l.toFixed(1)} mm</td>
+            <td>Ø${s.d1.toFixed(1)}</td>
+            <td>Ø${s.d2.toFixed(1)}</td>
+            <td>${s.beta1.toFixed(1)}° / ${s.beta2.toFixed(1)}°</td>
+            <td>${s.info}</td>
+        </tr>
+    `).join('');
 }
 
 function initCharts() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#94a3b8' : '#64748b';
 
-    const chartConfig = {
+    const ctx1 = document.getElementById('hpChart').getContext('2d');
+    hpChartInst = new Chart(ctx1, {
         type: 'line',
         data: { labels: [], datasets: [
             { label: '馬力 (HP)', data: [], borderColor: '#38bdf8', backgroundColor: '#38bdf8', pointRadius: 3, tension: 0.3 },
             { label: '扭力 (Nm)', data: [], borderColor: '#f59e0b', backgroundColor: '#f59e0b', pointRadius: 3, tension: 0.3 }
         ]},
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { labels: { color: textColor } } },
-            scales: {
-                x: { ticks: { color: textColor } },
-                y: { ticks: { color: textColor } }
-            }
-        }
-    };
-
-    const ctx1 = document.getElementById('hpChart').getContext('2d');
-    hpChartInst = new Chart(ctx1, chartConfig);
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } }
+    });
 
     const ctx2 = document.getElementById('waveChart').getContext('2d');
     waveChartInst = new Chart(ctx2, {
@@ -1191,22 +1124,7 @@ function initCharts() {
     });
 }
 
-function updateChartColors() {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = isDark ? '#94a3b8' : '#64748b';
-    [hpChartInst, waveChartInst, hpChartModalInst].forEach(c => {
-        if(c) {
-            c.options.plugins.legend.labels.color = textColor;
-            if(c.options.scales) {
-                c.options.scales.x.ticks.color = textColor;
-                c.options.scales.y.ticks.color = textColor;
-            }
-            c.update();
-        }
-    });
-}
-
-function updateCharts(targetRpm, tunedL, a, cc) {
+function updateCharts(targetRpm, cc) {
     if(!hpChartInst) return;
 
     const minRpm = Math.max(2000, Math.floor((targetRpm * 0.3) / 500) * 500);
@@ -1215,13 +1133,11 @@ function updateCharts(targetRpm, tunedL, a, cc) {
 
     const rpms = [], hps = [], torques = [];
     let maxHp = 0, maxHpRpm = 0, maxTq = 0, maxTqRpm = 0;
-
     const basePowerCoeff = (cc / 136) * 1.35;
 
     for(let r = minRpm; r <= maxRpm; r += stepRpm) {
         rpms.push(r);
         const ratio = r / targetRpm;
-
         const efficiency = Math.exp(-Math.pow((ratio - 1) / 0.16, 2));
         const hp = (r / 480) * basePowerCoeff * (0.2 + 0.8 * efficiency);
         const tq = (hp * 716.2) / r * 9.80665;
@@ -1256,44 +1172,6 @@ function updateCharts(targetRpm, tunedL, a, cc) {
     waveChartInst.data.labels = degs;
     waveChartInst.data.datasets[0].data = waves;
     waveChartInst.update();
-
-    if(hpChartModalInst) {
-        hpChartModalInst.data.labels = rpms;
-        hpChartModalInst.data.datasets[0].data = hps;
-        hpChartModalInst.data.datasets[1].data = torques;
-        hpChartModalInst.update();
-    }
-}
-
-function openChartModal() {
-    document.getElementById('chartModal').style.display = 'flex';
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = isDark ? '#94a3b8' : '#64748b';
-
-    if(!hpChartModalInst) {
-        const ctxModal = document.getElementById('hpChartModalCanvas').getContext('2d');
-        hpChartModalInst = new Chart(ctxModal, {
-            type: 'line',
-            data: JSON.parse(JSON.stringify(hpChartInst.data)),
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { labels: { color: textColor, font: { size: 14 } } } },
-                scales: {
-                    x: { ticks: { color: textColor, font: { size: 12 } } },
-                    y: { ticks: { color: textColor, font: { size: 12 } } }
-                }
-            }
-        });
-    } else {
-        hpChartModalInst.data = JSON.parse(JSON.stringify(hpChartInst.data));
-        hpChartModalInst.update();
-    }
-}
-
-function closeChartModal() {
-    document.getElementById('chartModal').style.display = 'none';
 }
 
 function exportDXF() {
