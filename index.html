@@ -1,1010 +1,1442 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2T Racing Exhaust Pipe Master - 二行程排氣管設計與 3D/CFD 模擬系統</title>
-  
-  <!-- Bootstrap 5 CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- FontAwesome Icons -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-  
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Three.js (r128) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- Three.js OrbitControls -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2T 競技排氣管設計與動態氣流模擬系統by小雞腿</title>
+    <!-- 引入 Three.js, OrbitControls, Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --panel: #151d30;
+            --panel-card: #090d16;
+            --accent: #38bdf8;
+            --accent-hover: #0284c7;
+            --text-main: #f1f5f9;
+            --text-sub: #94a3b8;
+            --border: #24314d;
+            --input-bg: #090d16;
+            --shadow: rgba(0, 0, 0, 0.4);
+            --mark-color: #ef4444;
+        }
 
-  <style>
-    :root {
-      --bg-dark: #121418;
-      --panel-bg: #1e222b;
-      --accent-cyan: #00e5ff;
-      --accent-yellow: #ffaa00;
-      --accent-orange: #ff5722;
-      --border-color: #2c3240;
-    }
+        [data-theme="light"] {
+            --bg: #f8fafc;
+            --panel: #ffffff;
+            --panel-card: #f1f5f9;
+            --accent: #0284c7;
+            --accent-hover: #0369a1;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --border: #cbd5e1;
+            --input-bg: #ffffff;
+            --shadow: rgba(0, 0, 0, 0.1);
+            --mark-color: #dc2626;
+        }
 
-    body {
-      background-color: var(--bg-dark);
-      color: #e0e6ed;
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      overflow-x: hidden;
-    }
+        * { box-sizing: border-box; touch-action: manipulation; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0; padding: 12px;
+            transition: background-color 0.3s, color 0.3s;
+        }
 
-    .navbar {
-      background-color: #181c24;
-      border-bottom: 1px solid var(--border-color);
-    }
+        .app-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
 
-    .panel-card {
-      background-color: var(--panel-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
+        header {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 12px 18px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px var(--shadow);
+        }
+        h1 { font-size: 1.15rem; color: var(--accent); margin: 0; }
+        .header-actions { display: flex; gap: 8px; align-items: center; }
 
-    .form-control, .form-select {
-      background-color: #121418;
-      border: 1px solid var(--border-color);
-      color: var(--accent-cyan);
-      font-weight: 600;
-    }
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 370px 1fr;
+            gap: 16px;
+        }
+        @media (max-width: 980px) {
+            .grid-layout { grid-template-columns: 1fr; }
+        }
 
-    .form-control:focus, .form-select:focus {
-      background-color: #0d0f12;
-      color: var(--accent-cyan);
-      border-color: var(--accent-cyan);
-      box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
-    }
+        .card {
+            background-color: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 6px var(--shadow);
+        }
 
-    label {
-      font-size: 0.85rem;
-      color: #9ab0c7;
-      margin-bottom: 2px;
-    }
+        .section-title {
+            margin: 0 0 10px 0;
+            font-size: 0.92rem;
+            font-weight: bold;
+            color: var(--accent);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+        }
 
-    .nav-tabs .nav-link {
-      color: #8a99ad;
-      border: none;
-      border-bottom: 2px solid transparent;
-      padding: 10px 18px;
-      font-weight: 600;
-    }
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+        .input-field { display: flex; flex-direction: column; gap: 4px; }
+        label { font-size: 0.8rem; color: var(--text-sub); }
 
-    .nav-tabs .nav-link.active {
-      color: var(--accent-cyan);
-      background: transparent;
-      border-bottom: 2px solid var(--accent-cyan);
-    }
+        .slider-row { display: flex; align-items: center; gap: 8px; }
+        input[type="range"] { flex-grow: 1; accent-color: var(--accent); height: 20px; }
+        .num-input { width: 75px; text-align: right; }
 
-    .canvas-container {
-      position: relative;
-      width: 100%;
-      height: 600px;
-      background-color: #0a0c0e;
-      border-radius: 6px;
-      overflow: hidden;
-    }
+        input, select {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            min-height: 38px;
+            outline: none;
+        }
 
-    .3d-hint-overlay {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      background: rgba(18, 20, 24, 0.85);
-      border: 1px solid var(--border-color);
-      padding: 8px 14px;
-      border-radius: 6px;
-      font-size: 0.82rem;
-      pointer-events: none;
-      z-index: 10;
-    }
+        .btn {
+            background: var(--accent);
+            color: #fff;
+            font-weight: bold;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.82rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 38px;
+        }
+        .btn:hover { background: var(--accent-hover); }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+        .btn-outline:hover { background: var(--accent); color: #fff; }
 
-    .table-dark-custom {
-      --bs-table-bg: transparent;
-      --bs-table-color: #e0e6ed;
-      font-size: 0.85rem;
-    }
+        .container-3d-wrapper {
+            position: relative;
+            background: #ffffff;
+            border-radius: 8px;
+            border: 2px solid var(--border);
+            height: 500px;
+            overflow: hidden;
+        }
+        #container3D { width: 100%; height: 100%; cursor: grab; background: #ffffff; }
+        #container3D:active { cursor: grabbing; }
 
-    .table-dark-custom input {
-      padding: 2px 6px;
-      font-size: 0.85rem;
-      text-align: center;
-    }
+        .toolbar-3d {
+            position: absolute;
+            top: 8px; right: 8px;
+            display: flex; gap: 6px; z-index: 10;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 6px; border-radius: 6px; backdrop-filter: blur(4px);
+            border: 1px solid #cbd5e1;
+            flex-wrap: wrap;
+        }
+        .toolbar-3d .btn-outline {
+            color: #0284c7;
+            border-color: #0284c7;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            min-height: 30px;
+        }
+        .toolbar-3d .btn-outline:hover {
+            background: #0284c7;
+            color: #ffffff;
+        }
 
-    .node-row-active {
-      background-color: rgba(0, 229, 255, 0.15) !important;
-    }
+        .tab-bar { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+        .tab-btn {
+            padding: 8px 14px;
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #121418;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #2c3240;
-      border-radius: 3px;
-    }
-  </style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 8px; }
+        th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-sub); background: rgba(0,0,0,0.1); }
+
+        .svg-container {
+            background: var(--panel-card);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 16px;
+            overflow-x: auto;
+        }
+
+        .unfold-item {
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 1px dashed var(--border);
+        }
+        .unfold-item-title {
+            font-size: 0.88rem;
+            font-weight: bold;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .flow-2d-container {
+            position: relative;
+            background: var(--panel-card);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        canvas#canvas2DFlow {
+            width: 100%;
+            height: 380px;
+            background: #050811;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .flow-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        @media (max-width: 768px) {
+            .flow-stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .stat-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        .stat-label { font-size: 0.75rem; color: var(--text-sub); }
+        .stat-val { font-size: 1rem; font-weight: bold; color: var(--accent); margin-top: 2px; }
+
+        .hint-text {
+            position: absolute;
+            bottom: 8px; left: 8px;
+            font-size: 0.75rem;
+            color: #334155;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #cbd5e1;
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
+        @media print {
+            body { background: #fff !important; color: #000 !important; padding: 0 !important; }
+            .no-print, header, .header-actions, .grid-layout > .card:first-child, .tab-bar, .toolbar-3d, #tab3D, #tabFlow2D, #tabSim { display: none !important; }
+            .grid-layout { display: block !important; }
+            .card { border: none !important; box-shadow: none !important; padding: 0 !important; background: transparent !important; }
+            .tab-content { display: block !important; }
+            .svg-container { background: #fff !important; border: none !important; padding: 0 !important; overflow: visible !important; }
+            .unfold-item { page-break-inside: avoid; border-bottom: 1px stroke #666 !important; margin-bottom: 15mm; }
+            svg { stroke: #000 !important; fill: none !important; }
+            path, rect { fill: none !important; stroke: #000 !important; stroke-width: 1px !important; }
+            text { fill: #000 !important; font-weight: bold; }
+        }
+    </style>
 </head>
 <body>
 
-  <!-- 頂部導航列 -->
-  <nav class="navbar navbar-expand-lg navbar-dark px-3 mb-3">
-    <a class="navbar-brand d-flex align-items-center" href="#">
-      <i class="fa-solid fa-fire-burner text-warning me-2 fs-4"></i>
-      <span class="fw-bold tracking-wide">2T RACING EXHAUST MASTER</span>
-      <span class="badge bg-danger ms-3 fs-6">v3.5 Professional</span>
-    </a>
-    <div class="ms-auto d-flex align-items-center gap-2">
-      <button class="btn btn-sm btn-outline-info" onclick="exportSVGPattern()">
-        <i class="fa-solid fa-file-export me-1"></i> 匯出 1:1 SVG 下料圖
-      </button>
-      <button class="btn btn-sm btn-outline-success" onclick="triggerRecalculate()">
-        <i class="fa-solid fa-rotate me-1"></i> 重新聲學計算
-      </button>
+<div class="app-container">
+    <header class="no-print">
+        <h1>2T 競技排氣管設計與動態氣流模擬系統 (進階實務版)</h1>
+        <div class="header-actions">
+            <button class="btn btn-outline" onclick="saveConfig()">📥 儲存設定</button>
+            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 載入設定</button>
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="loadConfig(event)">
+            <button class="btn btn-outline" onclick="toggleTheme()" id="themeBtn">🌙 深色模式</button>
+            <button class="btn btn-outline" onclick="triggerPrint()">🖨️ 列印 1:1 展開圖</button>
+            <button class="btn" onclick="exportDXF()">💾 匯出 CAD (.DXF)</button>
+        </div>
+    </header>
+
+    <div class="grid-layout">
+        <!-- 左側控制面板 -->
+        <div class="card no-print">
+            <div class="section-title">引擎規格 (缸徑 × 行程)</div>
+            <div class="input-group">
+                <div class="input-field">
+                    <label>氣缸缸徑 (Bore)</label>
+                    <div class="slider-row">
+                        <input type="range" id="boreSlider" min="30" max="100" step="0.5" value="56" oninput="syncVal('bore', this.value)">
+                        <input type="number" id="boreInput" class="num-input" value="56" step="0.5" onchange="syncVal('bore', this.value)">
+                        <span style="font-size:0.8rem;">mm</span>
+                    </div>
+                </div>
+
+                <div class="input-field">
+                    <label>曲軸行程 (Stroke)</label>
+                    <div class="slider-row">
+                        <input type="range" id="strokeSlider" min="30" max="100" step="0.5" value="55" oninput="syncVal('stroke', this.value)">
+                        <input type="number" id="strokeInput" class="num-input" value="55" step="0.5" onchange="syncVal('stroke', this.value)">
+                        <span style="font-size:0.8rem;">mm</span>
+                    </div>
+                </div>
+
+                <div style="font-size:0.82rem; background:rgba(56, 189, 248, 0.1); padding:6px 10px; border-radius:6px; color:var(--accent);">
+                    計算總排氣量: <b id="calcCCDisplay">135.5</b> cc
+                </div>
+            </div>
+
+            <div class="section-title">鈑金實務與中性層補償 (Fabrication)</div>
+            <div class="input-group">
+                <div class="input-field">
+                    <label>鋼板/鈦板厚度 t (Thickness)</label>
+                    <div class="slider-row">
+                        <input type="range" id="thickSlider" min="0.0" max="2.0" step="0.1" value="1.0" oninput="syncVal('thick', this.value)">
+                        <input type="number" id="thickInput" class="num-input" value="1.0" step="0.1" onchange="syncVal('thick', this.value)">
+                        <span style="font-size:0.8rem;">mm</span>
+                    </div>
+                </div>
+
+                <div class="input-field">
+                    <label>材質與加工選單 (套用 K-Factor)</label>
+                    <select id="kPresetSelect" onchange="applyKPreset(this.value)">
+                        <option value="custom">自訂 K-Factor 數值</option>
+                        <option value="0.44" selected>冷軋低碳鋼/鐵板 (0.44 - 手工捲圓)</option>
+                        <option value="0.46">不銹鋼 SUS304 (0.46 - 捲管伸長微調)</option>
+                        <option value="0.40">鈦合金 Titanium (0.40 - 高彈回彈)</option>
+                        <option value="0.39">鋁合金 5052/6061 (0.39 - 軟質折彎)</option>
+                        <option value="0.47">三輪滾圓機錐管加工 (0.47)</option>
+                    </select>
+                </div>
+
+                <div class="input-field">
+                    <label>中性層係數 K-Factor</label>
+                    <div class="slider-row">
+                        <input type="range" id="kFactorSlider" min="0.2" max="0.5" step="0.01" value="0.44" oninput="syncVal('kFactor', this.value)">
+                        <input type="number" id="kFactorInput" class="num-input" value="0.44" step="0.01" onchange="syncVal('kFactor', this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-title">氣波與擴散錐型式 (Gordon Blair / Jennings)</div>
+            <div class="input-group">
+                <div class="input-field">
+                    <label>排氣角 (Exhaust Duration)</label>
+                    <div class="slider-row">
+                        <input type="range" id="durSlider" min="150" max="210" value="186" oninput="syncVal('dur', this.value)">
+                        <input type="number" id="durInput" class="num-input" value="186" onchange="syncVal('dur', this.value)">
+                        <span style="font-size:0.8rem;">°</span>
+                    </div>
+                </div>
+
+                <div class="input-field">
+                    <label>目標峰值轉速 (Target RPM)</label>
+                    <div class="slider-row">
+                        <input type="range" id="rpmSlider" min="3000" max="25000" step="100" value="10000" oninput="syncVal('rpm', this.value)">
+                        <input type="number" id="rpmInput" class="num-input" value="10000" min="3000" max="25000" onchange="syncVal('rpm', this.value)">
+                    </div>
+                </div>
+
+                <div class="input-field">
+                    <label>擴散錐幾何結構 (Diffuser Type)</label>
+                    <select id="diffuserTypeInput" onchange="recalc()">
+                        <option value="single">單段擴散錐 (Single-Stage Diffuser)</option>
+                        <option value="multi" selected>三段式漸擴錐 (Multi-Stage 6°/9°/12° - 拓寬馬力帶)</option>
+                    </select>
+                </div>
+
+                <div class="input-field">
+                    <label>排氣溫度 EGT (°C)</label>
+                    <div class="slider-row">
+                        <input type="range" id="egtSlider" min="400" max="750" value="620" oninput="syncVal('egt', this.value)">
+                        <input type="number" id="egtInput" class="num-input" value="620" onchange="syncVal('egt', this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-title">頭段與膨脹室彎曲姿態</div>
+            <div class="input-group">
+                <div class="input-field">
+                    <label>頭段彎曲角度 (Header Bend)</label>
+                    <div class="slider-row">
+                        <input type="range" id="bendSlider" min="0" max="180" step="5" value="60" oninput="syncVal('bend', this.value)">
+                        <input type="number" id="bendInput" class="num-input" value="60" onchange="syncVal('bend', this.value)">
+                        <span style="font-size:0.8rem;">°</span>
+                    </div>
+                </div>
+
+                <div class="input-field">
+                    <label>頭段扭轉角度 (Header Twist)</label>
+                    <div class="slider-row">
+                        <input type="range" id="twistSlider" min="-180" max="180" step="5" value="0" oninput="syncVal('twist', this.value)">
+                        <input type="number" id="twistInput" class="num-input" value="0" step="5" onchange="syncVal('twist', this.value)">
+                        <span style="font-size:0.8rem;">°</span>
+                    </div>
+                </div>
+
+                <div class="input-field">
+                    <label>頭段蝦殼分節數 (Pie Cuts)</label>
+                    <input type="number" id="cutsInput" value="5" min="1" max="12" onchange="recalc()">
+                </div>
+
+                <div class="input-field" style="margin-top:6px; border-top:1px dashed var(--border); padding-top:8px;">
+                    <label>膨脹室整體彎曲角度 (Belly Bend)</label>
+                    <div class="slider-row">
+                        <input type="range" id="bellyBendSlider" min="0" max="90" step="5" value="30" oninput="syncVal('bellyBend', this.value)">
+                        <input type="number" id="bellyBendInput" class="num-input" value="30" onchange="syncVal('bellyBend', this.value)">
+                        <span style="font-size:0.8rem;">°</span>
+                    </div>
+                </div>
+
+                <div class="input-field">
+                    <label>膨脹室彎曲轉向 (Direction)</label>
+                    <select id="bellyDirInput" onchange="recalc()">
+                        <option value="up">向上避讓 (Up)</option>
+                        <option value="down" selected>向下繞管 (Down)</option>
+                        <option value="left">向左外擴 (Left)</option>
+                        <option value="right">向右內縮 (Right)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section-title">尾段消音器預覽</div>
+            <div class="input-group">
+                <div class="input-field">
+                    <label>消音器長度 (Length)</label>
+                    <div class="slider-row">
+                        <input type="range" id="silLSlider" min="100" max="400" value="220" oninput="syncVal('silL', this.value)">
+                        <input type="number" id="silLInput" class="num-input" value="220" onchange="syncVal('silL', this.value)">
+                        <span style="font-size:0.8rem;">mm</span>
+                    </div>
+                </div>
+                <div class="input-field">
+                    <label>消音內網口徑 (Core ID)</label>
+                    <input type="number" id="silDInput" value="22" min="14" max="35" onchange="recalc()">
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側展示面板 -->
+        <div class="card">
+            <div id="summaryBox" class="no-print" style="font-size:0.85rem; line-height:1.5; background:var(--panel-card); padding:10px; border-radius:6px; border:1px solid var(--border); margin-bottom:12px;"></div>
+
+            <div class="tab-bar no-print">
+                <button class="tab-btn active" onclick="switchTab('tab3D')">3D 姿態與結構預覽</button>
+                <button class="tab-btn" onclick="switchTab('tabFlow2D')">2D 動態氣流與聲波模擬</button>
+                <button class="tab-btn" onclick="switchTab('tabSim')">馬力波形與氣波模擬</button>
+                <button class="tab-btn" onclick="switchTab('tabFlat')">2D 1:1 展開圖與數據</button>
+            </div>
+
+            <!-- Tab 1: 3D 視圖 -->
+            <div id="tab3D" class="tab-content active">
+                <div class="container-3d-wrapper">
+                    <div class="toolbar-3d">
+                        <button class="btn btn-outline" id="heatTintBtn" onclick="toggleHeatTint()">🔥 鈦合金燒色: 開</button>
+                        <button class="btn btn-outline" onclick="toggleAutoRotate()">🔄 自動旋轉</button>
+                        <button class="btn btn-outline" onclick="toggleWireframe()">📐 結構線框</button>
+                        <button class="btn btn-outline" onclick="resetCamera()">🎯 重置視角</button>
+                    </div>
+                    <div id="container3D"></div>
+                    <div class="hint-text">💡 操控提示：左鍵旋轉 | 右鍵平移 | 滾輪縮放 (具備焊縫鈦燒色與多段漸擴錐展示)</div>
+                </div>
+            </div>
+
+            <!-- Tab 2: 2D 獨立氣流與聲波模擬 -->
+            <div id="tabFlow2D" class="tab-content">
+                <div class="flow-2d-container">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.88rem; font-weight:bold; color:var(--accent);">2D 膨脹室內部流體速度與聲波反射脈衝 (Fluid Velocity & Pressure Wave)</span>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn btn-outline" style="padding:2px 8px; font-size:0.75rem; min-height:28px;" onclick="toggleWavePulseOverlay()">🌊 切換壓力波形: 開/關</button>
+                        </div>
+                    </div>
+
+                    <canvas id="canvas2DFlow" width="1000" height="380"></canvas>
+
+                    <div class="flow-stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">頭段高溫射流速 (Header Jet)</div>
+                            <div class="stat-val" id="statHeaderSpeed">108.4 m/s</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">膨脹室擴散流速 (Belly Flow)</div>
+                            <div class="stat-val" id="statBellySpeed">14.8 m/s</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">尾管噴射流速 (Stinger Jet)</div>
+                            <div class="stat-val" id="statStingerSpeed">118.5 m/s</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">聲波諧振往返週期</div>
+                            <div class="stat-val" id="statWavePeriod">3.17 ms</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: 馬力與聲波曲線 -->
+            <div id="tabSim" class="tab-content">
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:bold; color:var(--accent); margin-bottom:6px;">預估馬力與扭力輸出曲線 (HP & Torque vs RPM)</div>
+                        <div id="peakInfoTag" style="font-size:0.78rem; color:var(--text-sub); margin-bottom:6px;"></div>
+                        <div style="height:230px;"><canvas id="hpChart"></canvas></div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:bold; margin-bottom:6px; color:var(--accent);">排氣門端壓力波形脈衝 (Exhaust Pressure Wave Pulse - kPa)</div>
+                        <div style="height:230px;"><canvas id="waveChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: 2D 1:1 展開圖與數據表格 -->
+            <div id="tabFlat" class="tab-content">
+                <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span style="font-size:0.82rem; color:var(--text-sub);">💡 展開圖中含有紅色對齊記號（Alignment Marks）與 K-Factor 板厚中性層補償計算。</span>
+                    <button class="btn btn-outline" onclick="triggerPrint()">🖨️ 列印 1:1 展開圖</button>
+                </div>
+
+                <div class="svg-container" id="svgContainer"></div>
+
+                <div class="no-print" style="overflow-x:auto; margin-top:16px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>區段</th>
+                                <th>中心長 L</th>
+                                <th>名義口徑 D1/D2</th>
+                                <th>中性層直徑 D1n/D2n</th>
+                                <th>兩端切角 &beta;1/&beta;2</th>
+                                <th>展開幾何資訊 (周長/弧角/對齊定位)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="flatTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
-  </nav>
+</div>
 
-  <div class="container-fluid px-3">
-    <div class="row g-3">
-      
-      <!-- 左側參數控制面板 -->
-      <div class="col-lg-4 col-xl-3" style="max-height: calc(100vh - 80px); overflow-y: auto;">
-        
-        <!-- 引擎基本參數 -->
-        <div class="panel-card p-3 mb-3">
-          <h6 class="text-warning fw-bold mb-3"><i class="fa-solid fa-gauge-high me-2"></i>引擎參數 (Engine Specs)</h6>
-          <div class="row g-2">
-            <div class="col-6">
-              <label>缸徑 Bore (mm)</label>
-              <input type="number" id="paramBore" class="form-control" value="59.0" step="0.1">
-            </div>
-            <div class="col-6">
-              <label>行程 Stroke (mm)</label>
-              <input type="number" id="paramStroke" class="form-control" value="54.5" step="0.1">
-            </div>
-            <div class="col-6">
-              <label>排氣角 Exhaust (°)</label>
-              <input type="number" id="paramExDuration" class="form-control" value="192" step="1">
-            </div>
-            <div class="col-6">
-              <label>目標轉速 Target RPM</label>
-              <input type="number" id="paramTargetRPM" class="form-control" value="11500" step="100">
-            </div>
-            <div class="col-12">
-              <label>平均排氣溫度 EGT (°C)</label>
-              <input type="number" id="paramEGT" class="form-control" value="650" step="10">
-            </div>
-          </div>
-        </div>
+<script>
+let scene3D, camera3D, renderer3D, controls3D, pipeGroup3D, previewTailGroup3D;
+let isAutoRotate = false, isWireframe = false, isHeatTint = true;
+let hpChartInst = null, waveChartInst = null;
+let currentSegments = [];
 
-        <!-- 前段自定義節點編輯器 -->
-        <div class="panel-card p-3 mb-3">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="text-info fw-bold m-0"><i class="fa-solid fa-route me-2"></i>前段彎曲扭轉節點</h6>
-            <button class="btn btn-sm btn-success py-0 px-2" onclick="addHeaderNode()">+ 新增節點</button>
-          </div>
-          <p class="text-muted small mb-2" style="font-size: 0.75rem;">支援扭轉角 (Twist) 計算三維空間蝦餅幾何。</p>
-          
-          <div class="table-responsive">
-            <table class="table table-dark-custom table-bordered text-center align-middle mb-2">
-              <thead>
-                <tr class="text-muted">
-                  <th>#</th>
-                  <th>長度(mm)</th>
-                  <th>彎角(°)</th>
-                  <th>扭轉(°)</th>
-                  <th>刪</th>
-                </tr>
-              </thead>
-              <tbody id="headerNodeTableBody">
-                <!-- 動態注入節點資料 -->
-              </tbody>
-            </table>
-          </div>
-        </div>
+// 2D 氣流模擬變數
+let flowCanvas2D, flowCtx2D;
+let flowParticles2D = [];
+let showWavePulse = true;
+let flowAnimFrameId = null;
 
-        <!-- 膨脹室與尾管幾何設定 -->
-        <div class="panel-card p-3 mb-3">
-          <h6 class="text-accent-cyan fw-bold mb-3" style="color: var(--accent-cyan);"><i class="fa-solid fa-shapes me-2"></i>膨脹室與尾管 (Chamber Geometry)</h6>
-          <div class="row g-2">
-            <div class="col-6">
-              <label>入口頭段內徑 D1 (mm)</label>
-              <input type="number" id="paramD1" class="form-control" value="35" step="1">
-            </div>
-            <div class="col-6">
-              <label>中段最大外徑 D2 (mm)</label>
-              <input type="number" id="paramD2" class="form-control" value="108" step="1">
-            </div>
-            <div class="col-6">
-              <label>擴散角 Diffuser Angle (°)</label>
-              <input type="number" id="paramDiffAngle" class="form-control" value="7.5" step="0.1">
-            </div>
-            <div class="col-6">
-              <label>收束角 Baffle Angle (°)</label>
-              <input type="number" id="paramBaffleAngle" class="form-control" value="14.0" step="0.1">
-            </div>
-            <div class="col-6">
-              <label>尾管內徑 Stinger D (mm)</label>
-              <input type="number" id="paramStingerD" class="form-control" value="23" step="1">
-            </div>
-            <div class="col-6">
-              <label>尾管長度 Stinger L (mm)</label>
-              <input type="number" id="paramStingerL" class="form-control" value="210" step="5">
-            </div>
-            <div class="col-6">
-              <label>板材厚度 Sheet (mm)</label>
-              <input type="number" id="paramSheetThickness" class="form-control" value="1.0" step="0.1">
-            </div>
-            <div class="col-6">
-              <label>折彎 K-Factor</label>
-              <input type="number" id="paramKFactor" class="form-control" value="0.42" step="0.01">
-            </div>
-          </div>
-        </div>
+function applyKPreset(val) {
+    if(val !== 'custom') {
+        syncVal('kFactor', val);
+    }
+}
 
-      </div>
-
-      <!-- 右側主要視圖區 -->
-      <div class="col-lg-8 col-xl-9">
-        <div class="panel-card p-3">
-          
-          <!-- 頁籤切換 -->
-          <ul class="nav nav-tabs mb-3" id="mainTab" role="tablist">
-            <li class="nav-item">
-              <button class="nav-link active" id="3d-tab" data-bs-toggle="tab" data-bs-target="#tab3D" type="button">
-                <i class="fa-solid fa-cube me-2"></i>3D 立體模型與點擊互動
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link" id="unfold-tab" data-bs-toggle="tab" data-bs-target="#tabUnfold" type="button">
-                <i class="fa-solid fa-vector-square me-2"></i>2D 鈑金展開圖 (1:1 Patterns)
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link" id="cfd-tab" data-bs-toggle="tab" data-bs-target="#tabCFD" type="button">
-                <i class="fa-solid fa-wind me-2"></i>2D 流場/聲波 CFD 模擬
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link" id="chart-tab" data-bs-toggle="tab" data-bs-target="#tabChart" type="button">
-                <i class="fa-solid fa-chart-line me-2"></i>馬力與聲壓諧波分析
-              </button>
-            </li>
-          </ul>
-
-          <div class="tab-content" id="mainTabContent">
-            
-            <!-- Tab 1: 3D Viewport -->
-            <div class="tab-pane fade show active" id="tab3D" role="tabpanel">
-              <div class="canvas-container" id="container3D">
-                <div class="3d-hint-overlay">
-                  <i class="fa-solid fa-hand-pointer text-warning me-1"></i>
-                  <b>3D 操作說明：</b> 滑鼠左鍵旋轉 / 右鍵平移 / 滾輪縮放。<br>
-                  <span class="text-warning">● 點擊黃色 [+] 按鈕：</span> 在該區段插入新增彎曲節點。<br>
-                  <span class="text-info">● 點擊青色球體：</span> 選取該節點並高亮左側參數表。
-                </div>
-              </div>
-            </div>
-
-            <!-- Tab 2: 2D Unfolding -->
-            <div class="tab-pane fade" id="tabUnfold" role="tabpanel">
-              <div class="p-2 bg-dark rounded">
-                <canvas id="canvas2DUnfold" width="1000" height="580" style="width:100%; height: auto; border:1px solid var(--border-color);"></canvas>
-              </div>
-            </div>
-
-            <!-- Tab 3: CFD Flow -->
-            <div class="tab-pane fade" id="tabCFD" role="tabpanel">
-              <div class="canvas-container p-2">
-                <canvas id="canvasCFD" width="1000" height="560" style="width:100%; height:100%;"></canvas>
-              </div>
-            </div>
-
-            <!-- Tab 4: Performance Charts -->
-            <div class="tab-pane fade" id="tabChart" role="tabpanel">
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <div class="p-3 bg-dark rounded border border-secondary">
-                    <h6 class="text-warning">預估馬力輸出曲線 (Power Curve)</h6>
-                    <canvas id="chartHP" height="260"></canvas>
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <div class="p-3 bg-dark rounded border border-secondary">
-                    <h6 class="text-info">膨脹室內部諧波聲壓分佈 (Acoustic Pressure Wave)</h6>
-                    <canvas id="chartWave" height="260"></canvas>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- JavaScript 核心系統引擎 -->
-  <script>
-    /* =========================================================================
-       1. 全域資料狀態 (Global System State)
-       ========================================================================= */
-    let engineParams = {
-      bore: 59.0,
-      stroke: 54.5,
-      exDuration: 192,
-      targetRPM: 11500,
-      egt: 650
+function saveConfig() {
+    const config = {
+        bore: document.getElementById('boreInput').value,
+        stroke: document.getElementById('strokeInput').value,
+        thick: document.getElementById('thickInput').value,
+        kFactor: document.getElementById('kFactorInput').value,
+        dur: document.getElementById('durInput').value,
+        rpm: document.getElementById('rpmInput').value,
+        diffuserType: document.getElementById('diffuserTypeInput').value,
+        egt: document.getElementById('egtInput').value,
+        bend: document.getElementById('bendInput').value,
+        twist: document.getElementById('twistInput').value,
+        cuts: document.getElementById('cutsInput').value,
+        bellyBend: document.getElementById('bellyBendInput').value,
+        bellyDir: document.getElementById('bellyDirInput').value,
+        silL: document.getElementById('silLInput').value,
+        silD: document.getElementById('silDInput').value
     };
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '2t_pipe_config_pro.json';
+    a.click();
+}
 
-    // 前段 3D 幾何節點 (長度, 彎曲角, 平面扭轉角)
-    let headerNodes = [
-      { length: 70, bendAngle: 0,  twistAngle: 0 },
-      { length: 45, bendAngle: 18, twistAngle: 0 },
-      { length: 50, bendAngle: 24, twistAngle: 35 },
-      { length: 60, bendAngle: 15, twistAngle: -20 }
-    ];
-
-    let chamberParams = {
-      d1: 35,
-      d2: 108,
-      diffAngle: 7.5,
-      baffleAngle: 14.0,
-      stingerD: 23,
-      stingerL: 210,
-      sheetThickness: 1.0,
-      kFactor: 0.42
+function loadConfig(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const config = JSON.parse(e.target.result);
+            for (const [key, val] of Object.entries(config)) {
+                if (document.getElementById(key + 'Input')) {
+                    if(key === 'bellyDir' || key === 'diffuserType') {
+                        document.getElementById(key + 'Input').value = val;
+                    } else {
+                        syncVal(key, val);
+                    }
+                }
+            }
+            recalc();
+        } catch(err) {
+            alert('載入設定失敗：檔案格式不正確');
+        }
     };
+    reader.readAsText(file);
+    event.target.value = '';
+}
 
-    // Three.js 場景元件
-    let scene, camera, renderer, controls;
-    let pipeMeshGroup = null;
-    let interactiveHandles = [];
-    let raycaster = new THREE.Raycaster();
-    let mouse = new THREE.Vector2();
+function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    document.getElementById('themeBtn').innerText = next === 'dark' ? '🌙 深色模式' : '☀️ 淺色模式';
+}
 
-    // Chart.js 實例（用於正確銷毀避免 Memory Leak）
-    let hpChartInst = null;
-    let waveChartInst = null;
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+}
 
-    /* =========================================================================
-       2. 初始化與事件綁定
-       ========================================================================= */
-    window.addEventListener('DOMContentLoaded', () => {
-      init3DScene();
-      initUIListeners();
-      renderNodeTable();
-      rebuildAll();
+function syncVal(key, val) {
+    if(document.getElementById(key + 'Slider')) document.getElementById(key + 'Slider').value = val;
+    if(document.getElementById(key + 'Input')) document.getElementById(key + 'Input').value = val;
+    recalc();
+}
 
-      // Bootstrap Tab 切換時自動修復 Canvas 尺寸
-      const tabEl = document.querySelectorAll('button[data-bs-toggle="tab"]');
-      tabEl.forEach(tab => {
-        tab.addEventListener('shown.bs.tab', (e) => {
-          if (e.target.id === 'unfold-tab') draw2DUnfoldingPattern();
-          if (e.target.id === 'chart-tab') renderCharts();
+function triggerPrint() {
+    switchTab('tabFlat');
+    setTimeout(() => { window.print(); }, 200);
+}
+
+// 3D 視圖初始化
+function init3D() {
+    const container = document.getElementById('container3D');
+    scene3D = new THREE.Scene();
+    scene3D.background = new THREE.Color(0xffffff);
+
+    camera3D = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 1, 5000);
+    camera3D.position.set(220, 160, 420);
+
+    renderer3D = new THREE.WebGLRenderer({ antialias: true });
+    renderer3D.setSize(container.clientWidth, container.clientHeight);
+    renderer3D.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer3D.domElement);
+
+    controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+    controls3D.enableDamping = true;
+    controls3D.dampingFactor = 0.05;
+    controls3D.enablePan = true;
+    controls3D.screenSpacePanning = true;
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    scene3D.add(ambientLight);
+
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.9);
+    dirLight1.position.set(200, 400, 300);
+    scene3D.add(dirLight1);
+
+    const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.4);
+    dirLight2.position.set(-200, -200, -200);
+    scene3D.add(dirLight2);
+
+    pipeGroup3D = new THREE.Group();
+    previewTailGroup3D = new THREE.Group();
+
+    scene3D.add(pipeGroup3D);
+    scene3D.add(previewTailGroup3D);
+
+    animate3D();
+}
+
+function toggleAutoRotate() { isAutoRotate = !isAutoRotate; }
+function toggleWireframe() { isWireframe = !isWireframe; render3DPipe(); }
+function toggleHeatTint() {
+    isHeatTint = !isHeatTint;
+    document.getElementById('heatTintBtn').innerText = `🔥 鈦合金燒色: ${isHeatTint ? '開' : '關'}`;
+    render3DPipe();
+}
+
+function resetCamera() { 
+    if(controls3D) {
+        controls3D.reset();
+        camera3D.position.set(220, 160, 420);
+        controls3D.target.set(0, 0, 0);
+    }
+}
+
+function animate3D() {
+    requestAnimationFrame(animate3D);
+    if(controls3D) controls3D.update();
+    if(isAutoRotate && pipeGroup3D) {
+        pipeGroup3D.rotation.y += 0.005;
+        previewTailGroup3D.rotation.y += 0.005;
+    }
+    if(renderer3D && scene3D && camera3D) renderer3D.render(scene3D, camera3D);
+}
+
+// 主計算邏輯
+function recalc() {
+    const bore = parseFloat(document.getElementById('boreInput').value);
+    const stroke = parseFloat(document.getElementById('strokeInput').value);
+    const cc = (Math.PI / 4) * Math.pow(bore / 10, 2) * (stroke / 10);
+    document.getElementById('calcCCDisplay').innerText = cc.toFixed(1);
+
+    const thickness = parseFloat(document.getElementById('thickInput').value);
+    const kFactor = parseFloat(document.getElementById('kFactorInput').value);
+
+    const dur = parseFloat(document.getElementById('durInput').value);
+    const rpm = parseFloat(document.getElementById('rpmInput').value);
+    const diffuserType = document.getElementById('diffuserTypeInput').value;
+    const egt = parseFloat(document.getElementById('egtInput').value);
+    const bendAngle = parseFloat(document.getElementById('bendInput').value);
+    const bendCuts = parseInt(document.getElementById('cutsInput').value);
+    const bellyBend = parseFloat(document.getElementById('bellyBendInput').value);
+    const bellyDir = document.getElementById('bellyDirInput').value;
+
+    const silL = parseFloat(document.getElementById('silLInput').value);
+    const silD = parseFloat(document.getElementById('silDInput').value);
+
+    const soundSpeed = 20.05 * Math.sqrt(273.15 + egt);
+    const tunedLength = (dur * soundSpeed * 1000) / (12 * rpm);
+
+    const headerD = Math.sqrt(cc / 136) * 35;
+    const headerEndD = headerD * 1.08;
+    const bellyD = headerD * 2.7;
+    const stingerD = headerD * 0.6;
+
+    const totalHeaderL = tunedLength * 0.28;
+    const diffL = tunedLength * 0.38;
+    const bellyL = tunedLength * 0.16;
+    const baffleL = tunedLength * 0.18;
+
+    currentSegments = [];
+
+    // 計算中性層直徑函式
+    const calcNeutralD = (nominalD) => Math.max(1.0, nominalD - 2 * thickness * (1 - kFactor));
+
+    // 1. 頭段蝦殼彎節
+    if (bendAngle > 0 && bendCuts > 0) {
+        const subL = totalHeaderL / bendCuts;
+        const miterAngleDeg = bendAngle / (2 * bendCuts);
+        const betaRad = (miterAngleDeg * Math.PI) / 180;
+
+        for (let i = 0; i < bendCuts; i++) {
+            const d1 = headerD + (headerEndD - headerD) * (i / bendCuts);
+            const d2 = headerD + (headerEndD - headerD) * ((i + 1) / bendCuts);
+            const d1_n = calcNeutralD(d1), d2_n = calcNeutralD(d2);
+            const avgDn = (d1_n + d2_n) / 2;
+            const circN = Math.PI * avgDn;
+            const hDiff = avgDn * Math.tan(betaRad);
+
+            currentSegments.push({
+                name: `1-${i+1}. 蝦殼彎節 ${i+1}/${bendCuts}`,
+                l: subL, d1: d1, d2: d2, d1_n: d1_n, d2_n: d2_n,
+                beta1: miterAngleDeg, beta2: miterAngleDeg,
+                turnAngle: bendAngle / bendCuts, turnAxis: 'header',
+                info: `長度 ${subL.toFixed(1)}mm | 中性層周長 ${circN.toFixed(1)}mm (落差 ${hDiff.toFixed(1)}mm)`
+            });
+        }
+    } else {
+        const d1_n = calcNeutralD(headerD), d2_n = calcNeutralD(headerEndD);
+        const avgDn = (d1_n + d2_n) / 2;
+        currentSegments.push({
+            name: "1. 直線頭段", l: totalHeaderL, d1: headerD, d2: headerEndD, d1_n: d1_n, d2_n: d2_n,
+            beta1: 0, beta2: 0, turnAngle: 0,
+            info: `長度 ${totalHeaderL.toFixed(1)}mm | 中性層周長 ${(Math.PI * avgDn).toFixed(1)}mm`
         });
-      });
+    }
+
+    let bellyAxis = 'z';
+    if(bellyDir === 'left' || bellyDir === 'right') bellyAxis = 'y';
+    const halfBellyBend = bellyBend / 2;
+
+    // 2. 擴散錐 (單段 vs 多段 6°/9°/12°)
+    if (diffuserType === 'multi') {
+        const l1 = diffL * 0.3, l2 = diffL * 0.4, l3 = diffL * 0.3;
+        const d_m1 = headerEndD + (bellyD - headerEndD) * 0.22;
+        const d_m2 = headerEndD + (bellyD - headerEndD) * 0.68;
+
+        const subCones = [
+            { name: "2-1. 一階擴散錐 (6°緩展)", l: l1, d1: headerEndD, d2: d_m1, b1: 0, b2: 0, turnA: 0 },
+            { name: "2-2. 二階擴散錐 (9°中展)", l: l2, d1: d_m1, d2: d_m2, b1: 0, b2: halfBellyBend, turnA: halfBellyBend },
+            { name: "2-3. 三階擴散錐 (12°陡展)", l: l3, d1: d_m2, d2: bellyD, b1: halfBellyBend, b2: 0, turnA: 0 }
+        ];
+
+        subCones.forEach(sc => {
+            const d1_n = calcNeutralD(sc.d1), d2_n = calcNeutralD(sc.d2);
+            const r1_n = d1_n / 2, r2_n = d2_n / 2;
+            const S_n = Math.sqrt(sc.l * sc.l + Math.pow(r2_n - r1_n, 2));
+            const Rout_n = (r2_n * S_n) / Math.max(0.001, r2_n - r1_n);
+            const phiDeg_n = 360 * (r2_n / Math.max(0.001, Rout_n));
+
+            currentSegments.push({
+                name: sc.name, l: sc.l, d1: sc.d1, d2: sc.d2, d1_n: d1_n, d2_n: d2_n,
+                beta1: sc.b1, beta2: sc.b2, turnAngle: sc.turnA, turnAxis: bellyAxis, bellyDir: bellyDir,
+                info: `長度 ${sc.l.toFixed(1)}mm | 圓錐扇角 ${phiDeg_n.toFixed(1)}°`
+            });
+        });
+    } else {
+        const d1_n = calcNeutralD(headerEndD), d2_n = calcNeutralD(bellyD);
+        const r1_n = d1_n / 2, r2_n = d2_n / 2;
+        const S_n = Math.sqrt(diffL * diffL + Math.pow(r2_n - r1_n, 2));
+        const Rout_n = (r2_n * S_n) / Math.max(0.001, r2_n - r1_n);
+        const phiDeg_n = 360 * (r2_n / Math.max(0.001, Rout_n));
+
+        currentSegments.push({
+            name: "2. 單段擴散錐 (Diffuser)", l: diffL, d1: headerEndD, d2: bellyD, d1_n: d1_n, d2_n: d2_n,
+            beta1: 0, beta2: halfBellyBend, turnAngle: halfBellyBend, turnAxis: bellyAxis, bellyDir: bellyDir,
+            info: `長度 ${diffL.toFixed(1)}mm | 圓錐扇角 ${phiDeg_n.toFixed(1)}°`
+        });
+    }
+
+    // 3. 膨脹室
+    const bellyDn = calcNeutralD(bellyD);
+    currentSegments.push({
+        name: "3. 膨脹室 (Belly)", l: bellyL, d1: bellyD, d2: bellyD, d1_n: bellyDn, d2_n: bellyDn,
+        beta1: halfBellyBend, beta2: halfBellyBend, turnAngle: halfBellyBend, turnAxis: bellyAxis, bellyDir: bellyDir,
+        info: `長度 ${bellyL.toFixed(1)}mm | 中性層周長 ${(Math.PI * bellyDn).toFixed(1)}mm`
     });
 
-    function initUIListeners() {
-      const inputs = document.querySelectorAll('input[id^="param"]');
-      inputs.forEach(input => {
-        input.addEventListener('change', () => {
-          readUIInputs();
-          rebuildAll();
-        });
-      });
+    // 4. 反射錐
+    const stingerDn = calcNeutralD(stingerD);
+    const r1_baff = bellyDn / 2, r2_baff = stingerDn / 2;
+    const S_baff = Math.sqrt(baffleL * baffleL + Math.pow(r1_baff - r2_baff, 2));
+    const Rout_baff = (r1_baff * S_baff) / Math.max(0.001, r1_baff - r2_baff);
+    const phiDeg_baff = 360 * (r1_baff / Math.max(0.001, Rout_baff));
+
+    currentSegments.push({
+        name: "4. 反射錐 (Baffle)", l: baffleL, d1: bellyD, d2: stingerD, d1_n: bellyDn, d2_n: stingerDn,
+        beta1: halfBellyBend, beta2: 0, turnAngle: 0,
+        info: `長度 ${baffleL.toFixed(1)}mm | 圓錐扇角 ${phiDeg_baff.toFixed(1)}°`
+    });
+
+    // 5. 尾管
+    currentSegments.push({
+        name: "5. 尾管 (Stinger)", l: stingerD * 10, d1: stingerD, d2: stingerD, d1_n: stingerDn, d2_n: stingerDn,
+        beta1: 0, beta2: 0, turnAngle: 0,
+        info: `長度 ${(stingerD * 10).toFixed(1)}mm | 口徑 Ø${stingerD.toFixed(1)}`
+    });
+
+    const backpressure = (0.00002 * Math.pow(rpm, 1.3) * (silL / Math.pow(silD, 2))).toFixed(2);
+
+    document.getElementById('summaryBox').innerHTML = `
+        • 排氣量: <b>${bore}mm × ${stroke}mm (${cc.toFixed(1)} cc)</b> | 板厚補償: <b>t=${thickness}mm (K=${kFactor})</b><br>
+        • 聲速: <b>${soundSpeed.toFixed(1)} m/s</b> | 諧振長: <b>${tunedLength.toFixed(1)} mm</b> | 擴散類型: <b>${diffuserType === 'multi' ? '三段漸擴 (高寬頻)' : '單段標準'}</b> | 背壓: <b>${backpressure} kPa</b>
+    `;
+
+    render3DPipe(silL, silD);
+    renderUnfoldSVGs();
+    renderTable();
+    updateCharts(rpm, cc, diffuserType);
+}
+
+// 角平分切面 (Miter Bisector) 無縫管身 Geometry 生成與鈦燒色頂點漸變演算法
+function createSeamfreePipeGeometry(nodes, radii, radialSegments = 32) {
+    const numNodes = nodes.length;
+    if (numNodes < 2) return null;
+
+    const rings = [];
+    const dirs = [];
+
+    for (let i = 0; i < numNodes - 1; i++) {
+        dirs.push(new THREE.Vector3().subVectors(nodes[i+1], nodes[i]).normalize());
     }
 
-    function readUIInputs() {
-      engineParams.bore = parseFloat(document.getElementById('paramBore').value) || 59;
-      engineParams.stroke = parseFloat(document.getElementById('paramStroke').value) || 54.5;
-      engineParams.exDuration = parseFloat(document.getElementById('paramExDuration').value) || 190;
-      engineParams.targetRPM = parseFloat(document.getElementById('paramTargetRPM').value) || 11000;
-      engineParams.egt = parseFloat(document.getElementById('paramEGT').value) || 600;
+    let up = new THREE.Vector3(0, 1, 0);
+    if (Math.abs(dirs[0].dot(up)) > 0.98) up.set(1, 0, 0);
+    let right = new THREE.Vector3().crossVectors(dirs[0], up).normalize();
+    up.crossVectors(right, dirs[0]).normalize();
 
-      chamberParams.d1 = parseFloat(document.getElementById('paramD1').value) || 35;
-      chamberParams.d2 = parseFloat(document.getElementById('paramD2').value) || 100;
-      chamberParams.diffAngle = parseFloat(document.getElementById('paramDiffAngle').value) || 7.5;
-      chamberParams.baffleAngle = parseFloat(document.getElementById('paramBaffleAngle').value) || 14.0;
-      chamberParams.stingerD = parseFloat(document.getElementById('paramStingerD').value) || 22;
-      chamberParams.stingerL = parseFloat(document.getElementById('paramStingerL').value) || 200;
-      chamberParams.sheetThickness = parseFloat(document.getElementById('paramSheetThickness').value) || 1.0;
-      chamberParams.kFactor = parseFloat(document.getElementById('paramKFactor').value) || 0.42;
-    }
+    for (let i = 0; i < numNodes; i++) {
+        let miterDir, r = radii[i];
+        let currentDir = (i < numNodes - 1) ? dirs[i] : dirs[i - 1];
 
-    /* =========================================================================
-       3. 前段節點表格與 UI 互動 (Node Table & Actions)
-       ========================================================================= */
-    function renderNodeTable() {
-      const tbody = document.getElementById('headerNodeTableBody');
-      tbody.innerHTML = '';
-
-      headerNodes.forEach((node, i) => {
-        const tr = document.createElement('tr');
-        tr.id = `node-row-${i}`;
-        tr.innerHTML = `
-          <td class="fw-bold text-info">#${i + 1}</td>
-          <td><input type="number" class="form-control form-control-sm" value="${node.length}" onchange="updateNodeVal(${i}, 'length', this.value)"></td>
-          <td><input type="number" class="form-control form-control-sm" value="${node.bendAngle}" onchange="updateNodeVal(${i}, 'bendAngle', this.value)"></td>
-          <td><input type="number" class="form-control form-control-sm" value="${node.twistAngle}" onchange="updateNodeVal(${i}, 'twistAngle', this.value)"></td>
-          <td><button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="removeHeaderNode(${i})">×</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function updateNodeVal(index, key, val) {
-      headerNodes[index][key] = parseFloat(val) || 0;
-      rebuildAll();
-    }
-
-    function addHeaderNode(insertAt = -1) {
-      const newNode = { length: 45, bendAngle: 15, twistAngle: 0 };
-      if (insertAt >= 0 && insertAt <= headerNodes.length) {
-        headerNodes.splice(insertAt, 0, newNode);
-      } else {
-        headerNodes.push(newNode);
-      }
-      renderNodeTable();
-      rebuildAll();
-    }
-
-    function removeHeaderNode(index) {
-      if (headerNodes.length > 1) {
-        headerNodes.splice(index, 1);
-        renderNodeTable();
-        rebuildAll();
-      }
-    }
-
-    function highlightNodeInUI(index) {
-      document.querySelectorAll('#headerNodeTableBody tr').forEach(tr => tr.classList.remove('node-row-active'));
-      const activeRow = document.getElementById(`node-row-${index}`);
-      if (activeRow) {
-        activeRow.classList.add('node-row-active');
-        activeRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    }
-
-    /* =========================================================================
-       4. 聲學計算模組 (Gordon Blair Acoustic Calculation)
-       ========================================================================= */
-    function calculateAcoustics() {
-      // 聲速 a = 20.05 * sqrt(273.15 + EGT) (m/s)
-      const soundSpeed = 20.05 * Math.sqrt(273.15 + engineParams.egt);
-      
-      // 總聲學諧振長度 L_eq (mm) = (Exhaust Duration * Sound Speed * 1000) / (12 * Target RPM)
-      const idealL = (engineParams.exDuration * soundSpeed * 1000) / (12 * engineParams.targetRPM);
-
-      // 計算前段總長度
-      const headerTotalL = headerNodes.reduce((sum, n) => sum + n.length, 0);
-
-      // 擴散段與中間直段計算
-      const diffLen = ((chamberParams.d2 - chamberParams.d1) / 2) / Math.tan(THREE.MathUtils.degToRad(chamberParams.diffAngle));
-      const baffleLen = ((chamberParams.d2 - chamberParams.stingerD) / 2) / Math.tan(THREE.MathUtils.degToRad(chamberParams.baffleAngle));
-      
-      // 依總聲學長度推算中間 Belly 長度
-      const bellyLen = Math.max(20, idealL - (headerTotalL + diffLen + baffleLen / 2));
-
-      return { soundSpeed, idealL, headerTotalL, diffLen, bellyLen, baffleLen };
-    }
-
-    /* =========================================================================
-       5. Three.js 3D 渲染與 Raycaster 互動
-       ========================================================================= */
-    function init3DScene() {
-      const container = document.getElementById('container3D');
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0a0c0e);
-
-      camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 5000);
-      camera.position.set(300, 200, 600);
-
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setSize(container.clientWidth, container.clientHeight);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      container.appendChild(renderer.domElement);
-
-      controls = new THREE.OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-
-      // 燈光設定
-      const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
-      scene.add(ambLight);
-
-      const dirLight1 = new THREE.DirectionalLight(0x00e5ff, 0.8);
-      dirLight1.position.set(200, 400, 300);
-      scene.add(dirLight1);
-
-      const dirLight2 = new THREE.DirectionalLight(0xffaa00, 0.5);
-      dirLight2.position.set(-200, -200, -300);
-      scene.add(dirLight2);
-
-      // 網格底盤
-      const grid = new THREE.GridHelper(1000, 40, 0x2c3240, 0x181c24);
-      grid.position.y = -150;
-      scene.add(grid);
-
-      // 註冊 Raycaster 事件
-      const dom = renderer.domElement;
-      dom.addEventListener('pointermove', on3DPointerMove);
-      dom.addEventListener('click', on3DClick);
-
-      // 視窗 Resize
-      window.addEventListener('resize', () => {
-        camera.aspect = container.clientWidth / container.clientHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(container.clientWidth, container.clientHeight);
-      });
-
-      // 3D Render Loop
-      function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-      }
-      animate();
-    }
-
-    // 計算前段在 3D 空間中的連續中心線點與方向矩陣
-    function generateHeader3DPath() {
-      const points = [new THREE.Vector3(0, 0, 0)];
-      const dirs = [];
-
-      let currentPos = new THREE.Vector3(0, 0, 0);
-      let currentDir = new THREE.Vector3(0, 0, 1);
-      let upVec = new THREE.Vector3(0, 1, 0);
-
-      headerNodes.forEach((node) => {
-        // 1. 扭轉角 (Roll around current direction)
-        if (node.twistAngle !== 0) {
-          upVec.applyAxisAngle(currentDir, THREE.MathUtils.degToRad(node.twistAngle));
-        }
-
-        // 2. 彎曲角 (Pitch around orthogonal axis)
-        if (node.bendAngle !== 0) {
-          const bendAxis = new THREE.Vector3().crossVectors(currentDir, upVec).normalize();
-          currentDir.applyAxisAngle(bendAxis, THREE.MathUtils.degToRad(node.bendAngle)).normalize();
-          upVec.crossVectors(bendAxis, currentDir).negate().normalize();
-        }
-
-        const nextPos = currentPos.clone().addScaledVector(currentDir, node.length);
-        points.push(nextPos);
-        dirs.push(currentDir.clone());
-        currentPos = nextPos;
-      });
-
-      return { points, dirs };
-    }
-
-    // 構建 3D 排氣管整體 Mesh (前段 + 擴散段 + Belly + 縮流段 + 尾管)
-    function build3DPipeMesh() {
-      if (pipeMeshGroup) scene.remove(pipeMeshGroup);
-      pipeMeshGroup = new THREE.Group();
-
-      const acoustics = calculateAcoustics();
-      const { points: headerPts, dirs: headerDirs } = generateHeader3DPath();
-
-      // 前段管壁渲染 (漸變直徑：D1)
-      const segments = headerPts.length - 1;
-      for (let i = 0; i < segments; i++) {
-        const p1 = headerPts[i];
-        const p2 = headerPts[i + 1];
-        const segLen = p1.distanceTo(p2);
-
-        const cylinderGeo = new THREE.CylinderGeometry(
-          chamberParams.d1 / 2, chamberParams.d1 / 2, segLen, 24, 1, true
-        );
-
-        // 鈦合金焊縫色彩 (Heat Tint Gradient Simulation)
-        const colors = [];
-        const posAttr = cylinderGeo.attributes.position;
-        for (let j = 0; j < posAttr.count; j++) {
-          const y = posAttr.getY(j);
-          if (Math.abs(y - segLen / 2) < 2 || Math.abs(y + segLen / 2) < 2) {
-            colors.push(0.0, 0.9, 1.0); // 焊縫深藍
-          } else {
-            colors.push(0.8, 0.85, 0.9); // 金屬銀
-          }
-        }
-        cylinderGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-        const mat = new THREE.MeshStandardMaterial({
-          vertexColors: true,
-          metalness: 0.85,
-          roughness: 0.2,
-          side: THREE.DoubleSide
-        });
-
-        const mesh = new THREE.Mesh(cylinderGeo, mat);
-
-        // 定位與旋轉柱體至 p1 -> p2 向量
-        const midPoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
-        mesh.position.copy(midPoint);
-
-        const dir = new THREE.Vector3().subVectors(p2, p1).normalize();
-        const defaultOrientation = new THREE.Vector3(0, 1, 0);
-        mesh.quaternion.setFromUnitVectors(defaultOrientation, dir);
-
-        pipeMeshGroup.add(mesh);
-      }
-
-      // 膨脹室段幾何 (沿前段最後方向延伸)
-      const lastPt = headerPts[headerPts.length - 1];
-      const lastDir = headerDirs[headerDirs.length - 1] || new THREE.Vector3(0, 0, 1);
-
-      // 1. 擴散錐 (Diffuser)
-      const diffMesh = createConeSegmentMesh(lastPt, lastDir, chamberParams.d1, chamberParams.d2, acoustics.diffLen, 0xffaa00);
-      pipeMeshGroup.add(diffMesh.mesh);
-
-      // 2. 中間直段 (Belly)
-      const bellyMesh = createConeSegmentMesh(diffMesh.endPt, lastDir, chamberParams.d2, chamberParams.d2, acoustics.bellyLen, 0x00e5ff);
-      pipeMeshGroup.add(bellyMesh.mesh);
-
-      // 3. 收束錐 (Baffle)
-      const baffleMesh = createConeSegmentMesh(bellyMesh.endPt, lastDir, chamberParams.d2, chamberParams.stingerD, acoustics.baffleLen, 0xff3d00);
-      pipeMeshGroup.add(baffleMesh.mesh);
-
-      // 4. 尾管 (Stinger)
-      const stingerMesh = createConeSegmentMesh(baffleMesh.endPt, lastDir, chamberParams.stingerD, chamberParams.stingerD, chamberParams.stingerL, 0x888888);
-      pipeMeshGroup.add(stingerMesh.mesh);
-
-      scene.add(pipeMeshGroup);
-
-      // 更新 3D 空間互動控制按鈕 Handle
-      update3DHandles(headerPts);
-    }
-
-    function createConeSegmentMesh(startPt, dir, dStart, dEnd, length, colorHex) {
-      const geo = new THREE.CylinderGeometry(dEnd / 2, dStart / 2, length, 32, 1, true);
-      const mat = new THREE.MeshStandardMaterial({
-        color: colorHex,
-        metalness: 0.8,
-        roughness: 0.3,
-        side: THREE.DoubleSide
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-
-      const endPt = startPt.clone().addScaledVector(dir, length);
-      const midPt = new THREE.Vector3().addVectors(startPt, endPt).multiplyScalar(0.5);
-
-      mesh.position.copy(midPt);
-      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-
-      return { mesh, endPt };
-    }
-
-    /* =========================================================================
-       6. 3D Raycaster 射線點擊互動
-       ========================================================================= */
-    function update3DHandles(headerPoints) {
-      // 清除舊 Handles
-      interactiveHandles.forEach(h => scene.remove(h));
-      interactiveHandles = [];
-
-      // 建立現有節點點擊球 (Cyan Spheres)
-      headerPoints.forEach((pt, idx) => {
-        const geo = new THREE.SphereGeometry(5, 16, 16);
-        const mat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, wireframe: true });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.copy(pt);
-        mesh.userData = { type: 'node', index: idx };
-        scene.add(mesh);
-        interactiveHandles.push(mesh);
-      });
-
-      // 建立插入節點按鈕 (Yellow Add Buttons)
-      for (let i = 0; i < headerPoints.length; i++) {
-        let pos, insertIdx;
-        if (i < headerPoints.length - 1) {
-          pos = new THREE.Vector3().addVectors(headerPoints[i], headerPoints[i + 1]).multiplyScalar(0.5);
-          insertIdx = i + 1;
+        if (i === 0) {
+            miterDir = dirs[0].clone();
+        } else if (i === numNodes - 1) {
+            miterDir = dirs[i - 1].clone();
         } else {
-          const prev = headerPoints[i - 1] || new THREE.Vector3(0, 0, 0);
-          const dir = new THREE.Vector3().subVectors(headerPoints[i], prev).normalize();
-          pos = headerPoints[i].clone().addScaledVector(dir, 30);
-          insertIdx = headerPoints.length;
+            miterDir = new THREE.Vector3().addVectors(dirs[i - 1], dirs[i]).normalize();
+            
+            const prevDir = dirs[i - 1];
+            const axis = new THREE.Vector3().crossVectors(prevDir, dirs[i]);
+            if (axis.lengthSq() > 1e-6) {
+                axis.normalize();
+                const angle = Math.acos(Math.min(Math.max(prevDir.dot(dirs[i]), -1), 1));
+                right.applyAxisAngle(axis, angle);
+                up.crossVectors(right, dirs[i]).normalize();
+            }
         }
 
-        const addGeo = new THREE.SphereGeometry(7, 16, 16);
-        const addMat = new THREE.MeshStandardMaterial({
-          color: 0xffaa00,
-          emissive: 0xffaa00,
-          emissiveIntensity: 0.6
-        });
-        const addMesh = new THREE.Mesh(addGeo, addMat);
-        addMesh.position.copy(pos);
-        addMesh.userData = { type: 'add_button', insertIndex: insertIdx };
-        scene.add(addMesh);
-        interactiveHandles.push(addMesh);
-      }
-    }
-
-    function on3DPointerMove(event) {
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(interactiveHandles);
-
-      if (intersects.length > 0) {
-        document.getElementById('container3D').style.cursor = 'pointer';
-        interactiveHandles.forEach(h => h.scale.set(1, 1, 1));
-        intersects[0].object.scale.set(1.5, 1.5, 1.5);
-      } else {
-        document.getElementById('container3D').style.cursor = 'default';
-        interactiveHandles.forEach(h => h.scale.set(1, 1, 1));
-      }
-    }
-
-    function on3DClick(event) {
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(interactiveHandles);
-
-      if (intersects.length > 0) {
-        const obj = intersects[0].object;
-        if (obj.userData.type === 'add_button') {
-          addHeaderNode(obj.userData.insertIndex);
-        } else if (obj.userData.type === 'node') {
-          highlightNodeInUI(obj.userData.index);
+        const ringVertices = [];
+        const ringColors = [];
+        const dot = miterDir.dot(currentDir);
+        
+        let color = new THREE.Color(0x0284c7);
+        if (isHeatTint) {
+            if (i < numNodes * 0.4) {
+                const alpha = i / (numNodes * 0.4);
+                if (i % 2 === 0) color.setHSL(0.58, 0.9, 0.55);
+                else if (alpha < 0.3) color.setHSL(0.12, 0.85, 0.5);
+                else color.setHSL(0.75, 0.8, 0.5);
+            } else {
+                color.setHSL(0.55, 0.6, 0.6);
+            }
         }
-      }
+
+        for (let j = 0; j < radialSegments; j++) {
+            const theta = (j / radialSegments) * Math.PI * 2;
+            const localOffset = new THREE.Vector3()
+                .addScaledVector(right, Math.cos(theta) * r)
+                .addScaledVector(up, Math.sin(theta) * r);
+
+            const projLength = -localOffset.dot(miterDir) / (dot || 1);
+            const vertex = nodes[i].clone()
+                .add(localOffset)
+                .addScaledVector(currentDir, projLength);
+
+            ringVertices.push(vertex);
+            ringColors.push(color.r, color.g, color.b);
+        }
+        rings.push({ ringVertices, ringColors });
     }
 
-    /* =========================================================================
-       7. 2D 鈑金展開圖計算 (Sheet Metal Flat Pattern Unfolding)
-       ========================================================================= */
-    function draw2DUnfoldingPattern() {
-      const canvas = document.getElementById('canvas2DUnfold');
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const geometry = new THREE.BufferGeometry();
+    const verticesList = [];
+    const colorsList = [];
+    const indicesList = [];
 
-      const acoustics = calculateAcoustics();
-      const t = chamberParams.sheetThickness;
-      const k = chamberParams.kFactor;
-
-      // K-Factor 中性層校正直徑 Dn = D - 2*t*(1-K)
-      const dn1 = chamberParams.d1 - 2 * t * (1 - k);
-      const dn2 = chamberParams.d2 - 2 * t * (1 - k);
-      const dnStinger = chamberParams.stingerD - 2 * t * (1 - k);
-
-      ctx.save();
-      ctx.translate(50, 50);
-
-      // Title & Metadata
-      ctx.fillStyle = '#00e5ff';
-      ctx.font = '16px Segoe UI, sans-serif';
-      ctx.fillText('1:1 圓錐下料展開圖 (Conical Sector Flat Patterns)', 0, 0);
-
-      ctx.fillStyle = '#8a99ad';
-      ctx.font = '12px Segoe UI';
-      ctx.fillText(`板材厚度: ${t}mm | K-Factor: ${k} | 擴散錐大端展開弧長: ${(Math.PI * dn2).toFixed(1)}mm`, 0, 20);
-
-      // 繪製擴散錐 2D 扇形展開圖 (Diffuser Cone)
-      drawConeSector(ctx, 150, 200, dn1, dn2, acoustics.diffLen, '擴散錐 (Diffuser)');
-
-      // 繪製收束錐 2D 扇形展開圖 (Baffle Cone)
-      drawConeSector(ctx, 600, 200, dn2, dnStinger, acoustics.baffleLen, '收束錐 (Baffle)');
-
-      ctx.restore();
-    }
-
-    function drawConeSector(ctx, cx, cy, dSmall, dLarge, h, label) {
-      const r1 = dSmall / 2;
-      const r2 = dLarge / 2;
-      const slantH = Math.sqrt(Math.pow(r2 - r1, 2) + Math.pow(h, 2));
-
-      // 展開大圓半徑 R2 = slantH * r2 / (r2 - r1)
-      const R2 = (slantH * r2) / Math.max(0.001, (r2 - r1));
-      const R1 = R2 - slantH;
-      const theta = (2 * Math.PI * r2) / R2; // 展開扇形角度 (Rad)
-
-      const scale = Math.min(180 / R2, 0.4); // 縮放適應 Canvas
-
-      ctx.save();
-      ctx.translate(cx, cy);
-
-      ctx.beginPath();
-      ctx.arc(0, 0, R2 * scale, -theta / 2 - Math.PI / 2, theta / 2 - Math.PI / 2);
-      ctx.arc(0, 0, R1 * scale, theta / 2 - Math.PI / 2, -theta / 2 - Math.PI / 2, true);
-      ctx.closePath();
-
-      ctx.strokeStyle = '#ffaa00';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(255, 170, 0, 0.1)';
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '12px Segoe UI';
-      ctx.textAlign = 'center';
-      ctx.fillText(label, 0, (R2 * scale) + 25);
-      ctx.fillText(`頂角 θ: ${(THREE.MathUtils.radToDeg(theta)).toFixed(1)}°`, 0, (R2 * scale) + 40);
-
-      ctx.restore();
-    }
-
-    function exportSVGPattern() {
-      alert('已觸發 1:1 DXF/SVG 向量圖檔生成，正在下載檔案...');
-    }
-
-    /* =========================================================================
-       8. 2D 流場與聲波脈衝 CFD 模擬動畫
-       ========================================================================= */
-    let cfdParticles = [];
-    function initCFDParticles() {
-      cfdParticles = [];
-      for (let i = 0; i < 120; i++) {
-        cfdParticles.push({
-          x: Math.random() * 900,
-          y: (Math.random() - 0.5) * 20,
-          speed: 2 + Math.random() * 3
+    rings.forEach(ring => {
+        ring.ringVertices.forEach((v, idx) => {
+            verticesList.push(v.x, v.y, v.z);
+            colorsList.push(ring.ringColors[idx*3], ring.ringColors[idx*3+1], ring.ringColors[idx*3+2]);
         });
-      }
+    });
+
+    for (let i = 0; i < numNodes - 1; i++) {
+        for (let j = 0; j < radialSegments; j++) {
+            const curr = i * radialSegments + j;
+            const next = i * radialSegments + ((j + 1) % radialSegments);
+            const currNext = (i + 1) * radialSegments + j;
+            const nextNext = (i + 1) * radialSegments + ((j + 1) % radialSegments);
+
+            indicesList.push(curr, currNext, next);
+            indicesList.push(next, currNext, nextNext);
+        }
     }
-    initCFDParticles();
 
-    function renderCFDSimulation() {
-      const canvas = document.getElementById('canvasCFD');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(verticesList, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colorsList, 3));
+    geometry.setIndex(indicesList);
+    geometry.computeVertexNormals();
 
-      const acoustics = calculateAcoustics();
+    return { geometry, exitNode: nodes[numNodes - 1], exitDir: dirs[dirs.length - 1] };
+}
 
-      // 繪製排氣管 2D 輪廓剖面
-      ctx.save();
-      ctx.translate(50, 200);
+// 渲染 3D 模型
+function render3DPipe(silL, silD) {
+    if(!pipeGroup3D || !previewTailGroup3D) return;
 
-      ctx.beginPath();
-      ctx.moveTo(0, -chamberParams.d1 / 2);
-      ctx.lineTo(acoustics.headerTotalL * 0.5, -chamberParams.d1 / 2);
-      ctx.lineTo((acoustics.headerTotalL + acoustics.diffLen) * 0.5, -chamberParams.d2 / 2);
-      ctx.lineTo((acoustics.headerTotalL + acoustics.diffLen + acoustics.bellyLen) * 0.5, -chamberParams.d2 / 2);
-      ctx.lineTo((acoustics.headerTotalL + acoustics.diffLen + acoustics.bellyLen + acoustics.baffleLen) * 0.5, -chamberParams.stingerD / 2);
-      ctx.lineTo((acoustics.headerTotalL + acoustics.diffLen + acoustics.bellyLen + acoustics.baffleLen + acoustics.stingerL) * 0.5, -chamberParams.stingerD / 2);
-
-      // 下半輪廓 Mirror
-      ctx.lineTo((acoustics.headerTotalL + acoustics.diffLen + acoustics.bellyLen + acoustics.baffleLen + acoustics.stingerL) * 0.5, chamberParams.stingerD / 2);
-      ctx.lineTo((acoustics.headerTotalL + acoustics.diffLen + acoustics.bellyLen + acoustics.baffleLen) * 0.5, chamberParams.stingerD / 2);
-      ctx.lineTo((acoustics.headerTotalL + acoustics.diffLen + acoustics.bellyLen) * 0.5, chamberParams.d2 / 2);
-      ctx.lineTo((acoustics.headerTotalL + acoustics.diffLen) * 0.5, chamberParams.d2 / 2);
-      ctx.lineTo(acoustics.headerTotalL * 0.5, chamberParams.d1 / 2);
-      ctx.lineTo(0, chamberParams.d1 / 2);
-      ctx.closePath();
-
-      ctx.strokeStyle = '#00e5ff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(0, 229, 255, 0.05)';
-      ctx.fill();
-
-      // 動態流體粒子
-      cfdParticles.forEach(p => {
-        p.x += p.speed;
-        if (p.x > 850) p.x = 0;
-
-        ctx.fillStyle = '#ffaa00';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      // 正壓與負壓反射波疊加 (Superimposed Standing Wave)
-      const time = Date.now() * 0.005;
-      ctx.beginPath();
-      ctx.strokeStyle = '#ff3d00';
-      ctx.lineWidth = 2;
-      for (let x = 0; x < 850; x += 5) {
-        const wave = Math.sin(x * 0.02 - time) * Math.cos(x * 0.01) * 35;
-        if (x === 0) ctx.moveTo(x, wave + 180);
-        else ctx.lineTo(x, wave + 180);
-      }
-      ctx.stroke();
-
-      ctx.restore();
-
-      requestAnimationFrame(renderCFDSimulation);
+    while(pipeGroup3D.children.length > 0) {
+        const obj = pipeGroup3D.children[0];
+        if(obj.geometry) obj.geometry.dispose();
+        pipeGroup3D.remove(obj);
     }
-    requestAnimationFrame(renderCFDSimulation);
+    while(previewTailGroup3D.children.length > 0) {
+        const obj = previewTailGroup3D.children[0];
+        if(obj.geometry) obj.geometry.dispose();
+        previewTailGroup3D.remove(obj);
+    }
 
-    /* =========================================================================
-       9. Chart.js 馬力與諧波圖表引擎 (Memory Leak Safe)
-       ========================================================================= */
-    function renderCharts() {
-      // 銷毀舊圖表實例避免記憶體洩漏
-      if (hpChartInst) hpChartInst.destroy();
-      if (waveChartInst) waveChartInst.destroy();
+    const pipeNodes = [new THREE.Vector3(0, 0, 0)];
+    const pipeRadii = [];
 
-      const rpms = [];
-      const hps = [];
-      const targetRPM = engineParams.targetRPM;
+    let currentPos = new THREE.Vector3(0, 0, 0);
+    let forward = new THREE.Vector3(1, 0, 0);
+    let up = new THREE.Vector3(0, 1, 0);
+    let right = new THREE.Vector3(0, 0, 1);
 
-      for (let r = 5000; r <= 14000; r += 250) {
-        rpms.push(r);
-        // 模擬 2T 馬力峰值曲線 (Gaussian-like curve centered at targetRPM)
-        const dev = (r - targetRPM) / 1200;
-        const hp = 38 * Math.exp(-0.5 * dev * dev);
-        hps.push(hp.toFixed(2));
-      }
+    const twistAngle = parseFloat(document.getElementById('twistInput')?.value || 0);
+    const twistRad = twistAngle * Math.PI / 180;
+    up.applyAxisAngle(forward, twistRad);
+    right.applyAxisAngle(forward, twistRad);
 
-      // 1. 馬力圖表
-      const ctxHP = document.getElementById('chartHP').getContext('2d');
-      hpChartInst = new Chart(ctxHP, {
+    currentSegments.forEach((seg, idx) => {
+        if (idx === 0) pipeRadii.push(seg.d1 / 2);
+
+        let turnRad = (seg.turnAngle * Math.PI / 180);
+        let rotAxis = new THREE.Vector3();
+        let shouldRotate = seg.turnAngle > 0;
+
+        if (shouldRotate) {
+            if (seg.turnAxis === 'header') {
+                rotAxis.copy(right);
+                turnRad = -turnRad;
+            } else {
+                if (seg.bellyDir === 'up') rotAxis.copy(right);
+                else if (seg.bellyDir === 'down') rotAxis.copy(right).negate();
+                else if (seg.bellyDir === 'left') rotAxis.copy(up);
+                else if (seg.bellyDir === 'right') rotAxis.copy(up).negate();
+            }
+        }
+
+        const segLen = seg.l;
+        if (shouldRotate) {
+            forward.applyAxisAngle(rotAxis, turnRad);
+            up.applyAxisAngle(rotAxis, turnRad);
+            right.applyAxisAngle(rotAxis, turnRad);
+        }
+
+        currentPos.add(forward.clone().multiplyScalar(segLen));
+        pipeNodes.push(currentPos.clone());
+        pipeRadii.push(seg.d2 / 2);
+    });
+
+    const seamfreeData = createSeamfreePipeGeometry(pipeNodes, pipeRadii, 32);
+    if(seamfreeData && seamfreeData.geometry) {
+        const mat = new THREE.MeshStandardMaterial({
+            vertexColors: true, metalness: 0.75, roughness: 0.28,
+            wireframe: isWireframe, transparent: isWireframe, opacity: isWireframe ? 0.6 : 1.0,
+            side: THREE.DoubleSide
+        });
+        const mainMesh = new THREE.Mesh(seamfreeData.geometry, mat);
+        pipeGroup3D.add(mainMesh);
+
+        if(!isWireframe) {
+            const edges = new THREE.EdgesGeometry(seamfreeData.geometry, 15);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1 });
+            const lineSegments = new THREE.LineSegments(edges, lineMat);
+            pipeGroup3D.add(lineSegments);
+        }
+    }
+
+    if(silL && silD && seamfreeData) {
+        const exitNode = seamfreeData.exitNode;
+        const exitDir = seamfreeData.exitDir;
+
+        const silGeom = new THREE.CylinderGeometry(silD * 1.5, silD * 1.5, silL, 32);
+        silGeom.translate(0, silL / 2, 0);
+
+        const silMat = new THREE.MeshStandardMaterial({
+            color: 0x475569, transparent: true, opacity: 0.5, roughness: 0.4
+        });
+        const silMesh = new THREE.Mesh(silGeom, silMat);
+        const silGroup = new THREE.Group();
+        silGroup.position.copy(exitNode);
+
+        const qSil = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), exitDir);
+        silGroup.quaternion.copy(qSil);
+        silGroup.add(silMesh);
+        previewTailGroup3D.add(silGroup);
+    }
+
+    const bbox = new THREE.Box3().setFromObject(pipeGroup3D);
+    const center = new THREE.Vector3();
+    bbox.getCenter(center);
+    pipeGroup3D.position.sub(center);
+    previewTailGroup3D.position.sub(center);
+}
+
+// 2D 氣流模擬
+function init2DFlowSim() {
+    flowCanvas2D = document.getElementById('canvas2DFlow');
+    if(!flowCanvas2D) return;
+    flowCtx2D = flowCanvas2D.getContext('2d');
+
+    flowParticles2D = [];
+    for(let i = 0; i < 220; i++) {
+        flowParticles2D.push({
+            xNorm: Math.random(),
+            yOffset: (Math.random() - 0.5) * 1.6,
+            speedMult: 0.85 + Math.random() * 0.3,
+            size: 2.2 + Math.random() * 1.5
+        });
+    }
+    if(!flowAnimFrameId) animate2DFlow();
+}
+
+function toggleWavePulseOverlay() { showWavePulse = !showWavePulse; }
+
+function animate2DFlow() {
+    flowAnimFrameId = requestAnimationFrame(animate2DFlow);
+    if(!flowCanvas2D || !flowCtx2D || currentSegments.length === 0) return;
+
+    const w = flowCanvas2D.width, h = flowCanvas2D.height;
+    flowCtx2D.clearRect(0, 0, w, h);
+
+    let totalL = currentSegments.reduce((sum, s) => sum + s.l, 0);
+    const marginX = 60, marginY = h / 2;
+    const drawW = w - 120;
+    const scaleX = drawW / totalL;
+    const scaleY = scaleX * 1.35;
+
+    let currX = marginX;
+    const profilePts = [];
+
+    currentSegments.forEach(seg => {
+        const x1 = currX;
+        const x2 = currX + seg.l * scaleX;
+        const r1 = (seg.d1 / 2) * scaleY;
+        const r2 = (seg.d2 / 2) * scaleY;
+        profilePts.push({ x1, x2, r1, r2, seg });
+        currX = x2;
+    });
+
+    flowCtx2D.fillStyle = "rgba(15, 23, 42, 0.9)";
+    flowCtx2D.beginPath();
+    flowCtx2D.moveTo(profilePts[0].x1, marginY - profilePts[0].r1);
+    profilePts.forEach(p => flowCtx2D.lineTo(p.x2, marginY - p.r2));
+    for(let i = profilePts.length - 1; i >= 0; i--) {
+        flowCtx2D.lineTo(profilePts[i].x2, marginY + profilePts[i].r2);
+    }
+    flowCtx2D.lineTo(profilePts[0].x1, marginY + profilePts[0].r1);
+    flowCtx2D.closePath();
+    flowCtx2D.fill();
+
+    flowCtx2D.strokeStyle = "#38bdf8";
+    flowCtx2D.lineWidth = 2.5;
+    flowCtx2D.stroke();
+
+    const rpm = parseFloat(document.getElementById('rpmInput').value || 10000);
+    const baseSpeed = 0.003 + (rpm / 25000) * 0.007;
+
+    flowParticles2D.forEach(p => {
+        const curRealX = p.xNorm * totalL;
+        let localD = currentSegments[0].d1;
+
+        let accumL = 0;
+        for(let seg of currentSegments) {
+            if(curRealX >= accumL && curRealX <= accumL + seg.l) {
+                const alpha = (curRealX - accumL) / seg.l;
+                localD = seg.d1 + (seg.d2 - seg.d1) * alpha;
+                break;
+            }
+            accumL += seg.l;
+        }
+
+        const headerD = currentSegments[0].d1;
+        const velRatio = Math.pow(headerD / localD, 1.8);
+        p.xNorm += baseSpeed * velRatio * p.speedMult;
+        if(p.xNorm > 1.0) p.xNorm -= 1.0;
+
+        const canvasX = marginX + p.xNorm * drawW;
+        const halfR = (localD / 2) * scaleY;
+        const canvasY = marginY + p.yOffset * halfR * 0.85;
+
+        let color = "#38bdf8";
+        if(velRatio > 0.8) color = "#ef4444";
+        else if(velRatio > 0.4) color = "#f59e0b";
+        else if(velRatio > 0.2) color = "#10b981";
+
+        flowCtx2D.fillStyle = color;
+        flowCtx2D.beginPath();
+        flowCtx2D.arc(canvasX, canvasY, p.size, 0, Math.PI * 2);
+        flowCtx2D.fill();
+    });
+
+    if(showWavePulse) {
+        const time = Date.now() * 0.004;
+        flowCtx2D.lineWidth = 2;
+        flowCtx2D.beginPath();
+        for(let px = marginX; px <= marginX + drawW; px += 4) {
+            const normX = (px - marginX) / drawW;
+            const wave1 = Math.sin(normX * 12 - time) * Math.exp(-Math.pow((normX - 0.4), 2) * 8);
+            const wave2 = -Math.sin(normX * 16 + time * 1.2) * 0.6 * (normX > 0.4 ? 1 : 0);
+            const waveY = marginY + (wave1 + wave2) * 22;
+            if(px === marginX) flowCtx2D.moveTo(px, waveY);
+            else flowCtx2D.lineTo(px, waveY);
+        }
+        flowCtx2D.strokeStyle = "rgba(245, 158, 11, 0.85)";
+        flowCtx2D.stroke();
+    }
+}
+
+// 渲染 2D SVG 展開圖
+function renderUnfoldSVGs() {
+    const container = document.getElementById('svgContainer');
+    container.innerHTML = '';
+
+    currentSegments.forEach((seg) => {
+        const div = document.createElement('div');
+        div.className = 'unfold-item';
+        let svgHtml = '';
+        const strokeColor = 'var(--accent)';
+        const markColor = 'var(--mark-color)';
+
+        if (seg.beta1 > 0 || seg.beta2 > 0) {
+            const circAvg = Math.PI * ((seg.d1_n + seg.d2_n) / 2);
+            const L = seg.l;
+            const b1 = seg.beta1 * Math.PI / 180;
+            const b2 = seg.beta2 * Math.PI / 180;
+            const Npts = 64;
+
+            const padW = 40, padH = 40;
+            const maxH = L + (seg.d1_n / 2) * Math.tan(b1) + (seg.d2_n / 2) * Math.tan(b2) + 15;
+            const viewW = circAvg + padW;
+            const viewH = maxH + padH;
+
+            const xOff = padW / 2;
+            const yOff = maxH + (padH / 2) - 10;
+
+            let topPts = [], botPts = [];
+            let midTopX = 0, midTopY = 0, midBotX = 0, midBotY = 0;
+
+            for (let i = 0; i <= Npts; i++) {
+                const u = i / Npts;
+                const x = xOff + u * circAvg;
+                const theta = u * 2 * Math.PI;
+
+                const yBot = yOff - ((seg.d1_n / 2) * Math.tan(b1) * (1 - Math.cos(theta)));
+                const yTop = yBot - (L + (seg.d2_n / 2) * Math.tan(b2) * Math.cos(theta));
+
+                topPts.push(`${x.toFixed(2)},${yTop.toFixed(2)}`);
+                botPts.push(`${x.toFixed(2)},${yBot.toFixed(2)}`);
+
+                if (i === Math.floor(Npts / 2)) {
+                    midTopX = x; midTopY = yTop;
+                    midBotX = x; midBotY = yBot;
+                }
+            }
+
+            const pathD = `M ${botPts.join(' L ')} L ${topPts.reverse().join(' L ')} Z`;
+
+            const alignMarks = `
+                <line x1="${midBotX}" y1="${midBotY}" x2="${midBotX}" y2="${midBotY + 8}" stroke="${markColor}" stroke-width="2"/>
+                <line x1="${midTopX}" y1="${midTopY}" x2="${midTopX}" y2="${midTopY - 8}" stroke="${markColor}" stroke-width="2"/>
+                <polygon points="${midBotX-3},${midBotY+8} ${midBotX+3},${midBotY+8} ${midBotX},${midBotY+3}" fill="${markColor}"/>
+                <polygon points="${midTopX-3},${midTopY-8} ${midTopX+3},${midTopY-8} ${midTopX},${midTopY-3}" fill="${markColor}"/>
+            `;
+
+            svgHtml = `
+                <div class="unfold-item-title">${seg.name} (中性層周長: ${circAvg.toFixed(1)}mm | 斜切角 &beta;1:${seg.beta1.toFixed(1)}° &beta;2:${seg.beta2.toFixed(1)}°)</div>
+                <svg width="${viewW}mm" height="${viewH}mm" viewBox="0 0 ${viewW} ${viewH}">
+                    <line x1="${xOff}" y1="${yOff + 15}" x2="${xOff + 100}" y2="${yOff + 15}" stroke="${strokeColor}" stroke-width="2"/>
+                    <text x="${xOff}" y="${yOff + 26}" fill="var(--text-main)" font-size="10">100mm 實體校正尺</text>
+                    <path d="${pathD}" stroke="${strokeColor}" stroke-width="1.5" fill="rgba(56, 189, 248, 0.1)"/>
+                    ${alignMarks}
+                </svg>
+            `;
+        } else if (Math.abs(seg.d1_n - seg.d2_n) > 0.5) {
+            const rStart = seg.d1_n / 2, rEnd = seg.d2_n / 2;
+            const rMin = Math.min(rStart, rEnd), rMax = Math.max(rStart, rEnd);
+            const L = seg.l;
+
+            const S = Math.sqrt(L * L + Math.pow(rMax - rMin, 2));
+            const Rout = (rMax * S) / Math.max(0.001, rMax - rMin);
+            const Rin = Math.max(0, Rout - S);
+            const phi = 2 * Math.PI * (rMax / Rout);
+
+            const halfPhi = phi / 2;
+            const spanW = 2 * Rout * Math.sin(halfPhi);
+            const minY = Rin * Math.cos(halfPhi);
+            const maxY = Rout;
+            const spanH = maxY - minY;
+
+            const pad = 40;
+            const svgW = Math.max(spanW + pad, 180);
+            const svgH = Math.max(spanH + pad, 120);
+
+            const Cx = svgW / 2;
+            const Cy = (pad / 2) - minY;
+
+            const numPts = 48;
+            let outPts = [], inPts = [];
+            for (let i = 0; i <= numPts; i++) {
+                const a = -halfPhi + (i / numPts) * phi;
+                outPts.push(`${(Cx + Rout * Math.sin(a)).toFixed(2)},${(Cy + Rout * Math.cos(a)).toFixed(2)}`);
+                inPts.push(`${(Cx + Rin * Math.sin(a)).toFixed(2)},${(Cy + Rin * Math.cos(a)).toFixed(2)}`);
+            }
+
+            const largeArc = phi > Math.PI ? 1 : 0;
+            const pathD = `M ${outPts[0]} A ${Rout.toFixed(2)} ${Rout.toFixed(2)} 0 ${largeArc} 1 ${outPts[outPts.length-1]} L ${inPts[inPts.length-1]} A ${Rin.toFixed(2)} ${Rin.toFixed(2)} 0 ${largeArc} 0 ${inPts[0]} Z`;
+
+            const midX_out = Cx, midY_out = Cy + Rout;
+            const midX_in = Cx, midY_in = Cy + Rin;
+            const alignMarks = `
+                <line x1="${midX_out}" y1="${midY_out}" x2="${midX_out}" y2="${midY_out + 6}" stroke="${markColor}" stroke-width="2"/>
+                <line x1="${midX_in}" y1="${midY_in}" x2="${midX_in}" y2="${midY_in - 6}" stroke="${markColor}" stroke-width="2"/>
+            `;
+
+            svgHtml = `
+                <div class="unfold-item-title">${seg.name} (${seg.info})</div>
+                <svg width="${svgW}mm" height="${svgH}mm" viewBox="0 0 ${svgW} ${svgH}">
+                    <line x1="15" y1="20" x2="115" y2="20" stroke="${strokeColor}" stroke-width="2"/>
+                    <text x="15" y="14" fill="var(--text-main)" font-size="10">100mm 實體校正尺</text>
+                    <path d="${pathD}" stroke="${strokeColor}" stroke-width="1.5" fill="rgba(56, 189, 248, 0.1)"/>
+                    ${alignMarks}
+                </svg>
+            `;
+        } else {
+            const C = Math.PI * seg.d1_n;
+            const L = seg.l;
+            const padW = 30, padH = 30;
+            const svgW = C + padW;
+            const svgH = L + padH + 10;
+
+            const alignMarks = `
+                <line x1="${15 + C/2}" y1="25" x2="${15 + C/2}" y2="17" stroke="${markColor}" stroke-width="2"/>
+                <line x1="${15 + C/2}" y1="${25 + L}" x2="${15 + C/2}" y2="${25 + L + 8}" stroke="${markColor}" stroke-width="2"/>
+            `;
+
+            svgHtml = `
+                <div class="unfold-item-title">${seg.name} (矩形展開: ${C.toFixed(1)}mm x ${L.toFixed(1)}mm)</div>
+                <svg width="${svgW}mm" height="${svgH}mm" viewBox="0 0 ${svgW} ${svgH}">
+                    <line x1="15" y1="15" x2="115" y2="15" stroke="${strokeColor}" stroke-width="2"/>
+                    <text x="15" y="10" fill="var(--text-main)" font-size="10">100mm 實體校正尺</text>
+                    <rect x="15" y="25" width="${C}" height="${L}" stroke="${strokeColor}" stroke-width="1.5" fill="rgba(56, 189, 248, 0.1)"/>
+                    ${alignMarks}
+                </svg>
+            `;
+        }
+
+        div.innerHTML = svgHtml;
+        container.appendChild(div);
+    });
+}
+
+function renderTable() {
+    const tbody = document.getElementById('flatTableBody');
+    tbody.innerHTML = currentSegments.map(s => `
+        <tr>
+            <td><b>${s.name}</b></td>
+            <td>${s.l.toFixed(1)} mm</td>
+            <td>Ø${s.d1.toFixed(1)} / Ø${s.d2.toFixed(1)}</td>
+            <td>Ø${s.d1_n.toFixed(1)} / Ø${s.d2_n.toFixed(1)}</td>
+            <td>${s.beta1.toFixed(1)}° / ${s.beta2.toFixed(1)}°</td>
+            <td>${s.info}</td>
+        </tr>
+    `).join('');
+}
+
+function initCharts() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    const ctx1 = document.getElementById('hpChart').getContext('2d');
+    hpChartInst = new Chart(ctx1, {
         type: 'line',
-        data: {
-          labels: rpms,
-          datasets: [{
-            label: '預估馬力 Output (HP)',
-            data: hps,
-            borderColor: '#ffaa00',
-            backgroundColor: 'rgba(255, 170, 0, 0.15)',
-            fill: true,
-            tension: 0.4
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: '#e0e6ed' } } },
-          scales: {
-            x: { ticks: { color: '#8a99ad' }, grid: { color: '#2c3240' } },
-            y: { ticks: { color: '#8a99ad' }, grid: { color: '#2c3240' } }
-          }
-        }
-      });
+        data: { labels: [], datasets: [
+            { label: '馬力 (HP)', data: [], borderColor: '#38bdf8', backgroundColor: '#38bdf8', pointRadius: 3, tension: 0.3 },
+            { label: '扭力 (Nm)', data: [], borderColor: '#f59e0b', backgroundColor: '#f59e0b', pointRadius: 3, tension: 0.3 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } }
+    });
 
-      // 2. 聲波壓力分佈圖表
-      const ctxWave = document.getElementById('chartWave').getContext('2d');
-      const wavePos = [0, 20, 40, 60, 80, 100];
-      const pressure = [1.0, -0.8, 1.4, 0.2, -1.2, 0.0];
+    const ctx2 = document.getElementById('waveChart').getContext('2d');
+    waveChartInst = new Chart(ctx2, {
+        type: 'line',
+        data: { labels: [], datasets: [
+            { label: '排氣門端壓力脈衝 (kPa)', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, pointRadius: 2, tension: 0.2 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } } }
+    });
+}
 
-      waveChartInst = new Chart(ctxWave, {
-        type: 'bar',
-        data: {
-          labels: wavePos.map(p => `${p}% 長度`),
-          datasets: [{
-            label: '聲波反射壓力 (Bar)',
-            data: pressure,
-            backgroundColor: pressure.map(v => v >= 0 ? 'rgba(0, 229, 255, 0.6)' : 'rgba(255, 61, 0, 0.6)')
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: '#e0e6ed' } } },
-          scales: {
-            x: { ticks: { color: '#8a99ad' }, grid: { color: '#2c3240' } },
-            y: { ticks: { color: '#8a99ad' }, grid: { color: '#2c3240' } }
-          }
-        }
-      });
+function updateCharts(targetRpm, cc, diffuserType) {
+    if(!hpChartInst) return;
+
+    const minRpm = Math.max(2000, Math.floor((targetRpm * 0.3) / 500) * 500);
+    const maxRpm = Math.min(30000, Math.ceil((targetRpm * 1.4) / 500) * 500);
+    const stepRpm = Math.max(250, Math.round((maxRpm - minRpm) / 30 / 100) * 100);
+
+    const rpms = [], hps = [], torques = [];
+    let maxHp = 0, maxHpRpm = 0, maxTq = 0, maxTqRpm = 0;
+    const basePowerCoeff = (cc / 136) * 1.35;
+    
+    const bandWidth = (diffuserType === 'multi') ? 0.25 : 0.16;
+
+    for(let r = minRpm; r <= maxRpm; r += stepRpm) {
+        rpms.push(r);
+        const ratio = r / targetRpm;
+        const efficiency = Math.exp(-Math.pow((ratio - 1) / bandWidth, 2));
+        const hp = (r / 480) * basePowerCoeff * (0.2 + 0.8 * efficiency);
+        const tq = (hp * 716.2) / r * 9.80665;
+
+        const hpVal = parseFloat(hp.toFixed(1));
+        const tqVal = parseFloat(tq.toFixed(1));
+
+        if(hpVal > maxHp) { maxHp = hpVal; maxHpRpm = r; }
+        if(tqVal > maxTq) { maxTq = tqVal; maxTqRpm = r; }
+
+        hps.push(hpVal);
+        torques.push(tqVal);
     }
 
-    /* =========================================================================
-       10. 系統總重繪觸發 (Global Rebuild Trigger)
-       ========================================================================= */
-    function rebuildAll() {
-      build3DPipeMesh();
-      draw2DUnfoldingPattern();
-      renderCharts();
-    }
-  </script>
+    hpChartInst.data.labels = rpms;
+    hpChartInst.data.datasets[0].data = hps;
+    hpChartInst.data.datasets[1].data = torques;
+    hpChartInst.update();
 
-  <!-- Bootstrap 5 JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    document.getElementById('peakInfoTag').innerHTML = `
+        🎯 預估極限峰值：<b>${maxHp} HP</b> @ ${maxHpRpm.toLocaleString()} RPM | 最大扭力：<b>${maxTq} Nm</b> @ ${maxTqRpm.toLocaleString()} RPM
+    `;
+
+    const degs = [], waves = [];
+    for(let d = 0; d <= 200; d += 5) {
+        degs.push(`${d}°`);
+        let p = 0;
+        if(d > 20 && d < 70) p = -Math.sin((d-20)/50 * Math.PI) * 15;
+        if(d > 100 && d < 160) p = Math.sin((d-100)/60 * Math.PI) * 22;
+        waves.push(p.toFixed(1));
+    }
+    waveChartInst.data.labels = degs;
+    waveChartInst.data.datasets[0].data = waves;
+    waveChartInst.update();
+}
+
+function exportDXF() {
+    let dxf = "0\nSECTION\n2\nENTITIES\n";
+    let x = 0;
+    currentSegments.forEach(p => {
+        dxf += `0\nLINE\n8\nLAYER_CUT\n10\n${x}\n20\n0\n11\n${x + p.l}\n21\n0\n`;
+        x += p.l + 20;
+    });
+    dxf += "0\nENDSEC\n0\nEOF\n";
+    const blob = new Blob([dxf], { type: 'application/dxf' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '2T_Pipe_Pattern_Pro.dxf';
+    a.click();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    init3D();
+    init2DFlowSim();
+    initCharts();
+    recalc();
+});
+</script>
 </body>
 </html>
